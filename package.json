@@ -1,0 +1,22 @@
+{
+  "name": "team-memory",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+
+  "bin": {
+    "team-memory": "packages/installer/cli.mjs"
+  },
+
+  "workspaces": [
+    "packages/installer"
+  ],
+
+  "scripts": {
+    "build":          "npm run build --prefix packages/server",
+    "dev":            "npm run dev   --prefix packages/server",
+    "server:install": "npm install   --prefix packages/server",
+    "db:migrate":     "docker exec -i team-memory-db psql -U $DB_USER -d $DB_NAME < db/migrations/001_init.sql",
+    "db:migrate:002": "docker exec -i team-memory-db psql -U $DB_USER -d $DB_NAME < db/migrations/002_user_tracking.sql"
+  }
+}

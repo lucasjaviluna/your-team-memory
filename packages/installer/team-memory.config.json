@@ -1,0 +1,4 @@
+{
+  "_comment": "URL por defecto del servidor team-memory de esta organización. Se usa si no se pasa --url explícito. Editar este valor con la IP/hostname real del servidor interno.",
+  "defaultUrl": "http://10.0.0.5:3100/mcp"
+}

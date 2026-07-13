@@ -1,0 +1,10 @@
+{
+  "name": "@team-memory/installer",
+  "version": "1.0.0",
+  "description": "Universal installer for the team-memory MCP server",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  }
+}
