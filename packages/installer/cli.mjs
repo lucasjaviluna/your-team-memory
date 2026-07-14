@@ -31,25 +31,22 @@ ${'\x1b[1m'}Uso:${'\x1b[0m'}
   team-memory uninstall            Revierte todo lo instalado
   team-memory help                 Muestra esta ayuda
 
-${'\x1b[1m'}Transporte (--transport):${'\x1b[0m'}
-  --transport=http   (default) Servidor remoto via Streamable HTTP
-  --transport=stdio            Servidor local como subproceso del cliente IA
+${'\x1b[1m'}Opciones:${'\x1b[0m'}
+  --url <url>             URL del servidor MCP (http)
+  --transport=http        (default) Servidor remoto via Streamable HTTP — uso normal del equipo
+  --transport=stdio       Servidor local como subproceso — solo para administradores del servidor
+  --dry-run               Muestra qué se haría sin escribir nada
+  --yes                   Sin confirmaciones (scripts de onboarding)
+  --only=<lista>          Limita a: claude, vscode, copilot-cli, cursor
 
-${'\x1b[1m'}Opciones para --transport=http:${'\x1b[0m'}
-  --url <url>        URL del servidor (override de config/env)
-
-${'\x1b[1m'}Opciones para --transport=stdio:${'\x1b[0m'}
-  --server-path <ruta>   Ruta al dist/index.js del servidor compilado
+${'\x1b[33m'}⚠  --transport=stdio expone las credenciales del servidor (DB, Ollama) al cliente.
+   Usar solo para desarrollo o administración del servidor, no para devs del equipo.
+   Para el equipo, usar http — las credenciales quedan en el servidor.${'\x1b[0m'}
 
 ${'\x1b[1m'}Resolución de URL para http (en orden):${'\x1b[0m'}
-  1. --url <url>                     Flag explícito
-  2. team-memory.config.json         Campo "defaultUrl"
-  3. TEAM_MEMORY_URL                 Variable de entorno
-
-${'\x1b[1m'}Flags comunes:${'\x1b[0m'}
-  --dry-run          Muestra qué se haría sin escribir nada
-  --yes              Sin confirmaciones (para scripts de onboarding)
-  --only=<lista>     Limita a herramientas: claude,vscode,copilot-cli,cursor
+  1. --url <url>
+  2. team-memory.config.json → "defaultUrl"
+  3. Variable de entorno TEAM_MEMORY_URL
 
 ${'\x1b[1m'}Flags comunes:${'\x1b[0m'}
   --dry-run            Muestra qué se haría, sin escribir nada
@@ -57,16 +54,9 @@ ${'\x1b[1m'}Flags comunes:${'\x1b[0m'}
   --only=<lista>        Limita a herramientas específicas: claude,vscode,copilot-cli,cursor
 
 ${'\x1b[1m'}Ejemplos:${'\x1b[0m'}
-  # HTTP (servidor remoto — modo default)
   npx github:tu-org/team-memory install
   npx github:tu-org/team-memory install --url http://10.0.0.5:3100/mcp
   TEAM_MEMORY_URL=http://10.0.0.5:3100/mcp npx github:tu-org/team-memory install
-
-  # stdio (servidor local — desarrollo)
-  npx github:tu-org/team-memory install --transport=stdio
-  npx github:tu-org/team-memory install --transport=stdio --server-path=/ruta/packages/server/dist/index.js
-
-  # Otros
   npx github:tu-org/team-memory install --dry-run
   npx github:tu-org/team-memory uninstall --only=cursor
 `)
