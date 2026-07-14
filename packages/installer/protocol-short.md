@@ -2,50 +2,56 @@
 
 Tenés acceso al servidor MCP `team-memory` con las tools: `search_memory`, `get_context`, `save_memory`, `update_memory`, `list_projects`, `compact_memory`.
 
-### Resolving `project_slug` (required at startup)
+### Resolución de project_slug (obligatorio al iniciar)
 
-Before any other action, resolve `project_slug` using this flow:
+Antes de cualquier otra acción, resolvé el `project_slug` siguiendo este flujo:
 
-**Step 1 — Find `.team-memory.json`** by going up from the current directory until you find `.git` (the first one found wins — useful in monorepos).
+**Paso 1 — Buscar `.team-memory.json`** subiendo desde el directorio actual hasta encontrar `.git` (el primero que encuentres gana — útil en monorepos).
 
-**Case A — It exists and has `project_slug`:**
-Use it directly. Inform the dev:
-
+**Caso A — Existe y tiene `project_slug`:**
+Usarlo directamente. Informar al dev:
 ```
-[team-memory] Project: <slug> (source: .team-memory.json)
+[team-memory] Proyecto: <slug> (fuente: .team-memory.json)
 ```
 
-**Case B — It exists but without `project_slug`**, or **Case C — It does not exist:**
-
-1. Detect candidates:
-   - Git remote name (e.g. `acme/ecommerce-frontend` → `ecommerce-frontend`)
-   - `name` field in `package.json`, if present
-   - Root repo folder name
-2. Present options to the dev:
-
+**Caso B — Existe pero sin `project_slug`**, o **Caso C — No existe:**
+1. Detectar candidatos:
+   - Nombre del remote git (ej. `acme/ecommerce-frontend` → `ecommerce-frontend`)
+   - Campo `name` de `package.json` si existe
+   - Nombre de la carpeta raíz del repo
+2. Presentar opciones al dev:
 ```
-[team-memory] I did not find project_slug. What is the name of this project?
-  1) ecommerce-frontend  (git remote)
+[team-memory] No encontré project_slug. ¿Cuál es el nombre de este proyecto?
+  1) ecommerce-frontend  (remote git)
   2) frontend            (package.json)
-  3) mis-cosas           (folder)
-  4) Other — tell me which one
+  3) mis-cosas           (carpeta)
+  4) Otro — indicame cuál
+```
+3. Esperar respuesta del dev.
+4. Normalizar a kebab-case minúscula.
+5. Escribir en `.team-memory.json`:
+   - Caso B: actualizar el campo `project_slug` sin tocar otros campos existentes
+   - Caso C: crear el archivo con `{ "project_slug": "..." }`
+6. Informar al dev:
+```
+[team-memory] Proyecto: <slug> (guardado en .team-memory.json)
+Podés editarlo manualmente si el nombre no es correcto.
 ```
 
-3. Wait for the dev's response.
-4. Normalize to lowercase kebab-case.
-5. Write to `.team-memory.json`:
-   - Case B: update the `project_slug` field without touching other existing fields
-   - Case C: create the file with `{ "project_slug": "..." }`
-6. Inform the dev:
+El `project_slug` resuelto se reutiliza en todas las llamadas MCP de la sesión.
 
-```
-[team-memory] Project: <slug> (saved in .team-memory.json)
-You can edit it manually if the name is incorrect.
-```
+### Resolución de `area`
 
-The resolved `project_slug` is reused in all MCP calls for the session.
+Para cada entrada a guardar o buscar, resolver el área en este orden:
+1. `area_map` en `.team-memory.json` — matching por ruta del archivo activo (prefijo más largo)
+2. `default_area` en `.team-memory.json` — área default del repo
+3. Inferencia por heurística — imports, extensiones, nombre de archivo
+4. Preguntar al dev — solo si los tres anteriores fallan
 
-### Behavior during the session
+Decisiones que afectan varias capas → `area: 'general'` + tags específicos (`frontend`, `backend`, etc.).
+Informar siempre qué área se resolvió y desde qué nivel. Detalle completo: skill `team-memory`.
+
+### Comportamiento durante la sesión
 
 - **Al iniciar**: llamá `get_context({ project_slug })` antes de tu primera respuesta sustancial.
 - **Antes de responder** preguntas técnicas sobre el proyecto, llamá `search_memory` — no asumas ni inventes contexto.

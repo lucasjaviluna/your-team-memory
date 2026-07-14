@@ -25,6 +25,19 @@ Memory is no longer stored in local files. It lives in the team-memory MCP serve
 
 Subagent attribution (previously a header inside `anti-patterns.md`, e.g. "HTML Agent") is now a **tag** on the entry (`html-agent`, `css-agent`, `ts-agent`, `test-agent`), since MCP `area` only distinguishes frontend/backend/infra/general.
 
+## Area resolution
+
+Resolve `area` for every MCP call using this 4-level cascade:
+
+1. **`area_map`** in `.team-memory.json` — match longest path prefix of active file
+2. **`default_area`** in `.team-memory.json` — repo-level default
+3. **Heuristic inference** — imports, file extensions, directory names
+4. **Ask the dev** — only when the above three don't resolve
+
+Cross-area knowledge → `area: 'general'` + specific tags (`frontend`, `backend`, etc.).
+Always report the resolved area and its source when persisting an entry.
+Full detail in `memory.md` (Area Resolution section).
+
 ## Project identification
 
 Resolve `project_slug` once per session following the mandatory flow defined in `memory.md` (Project Identification section). Summary:
