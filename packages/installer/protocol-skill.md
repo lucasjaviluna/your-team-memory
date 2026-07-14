@@ -100,9 +100,102 @@ Al inicio de cada sesión, independientemente del caso, informar brevemente:
 
 Esto permite al dev detectar rápidamente si el slug es incorrecto y corregirlo antes de que el agente trabaje con el contexto equivocado.
 
-## Áreas y tipos
+## Resolver `area` — cascada de 4 niveles
 
-`area`: `frontend` | `backend` | `infra` | `general`
+`area` es requerido en `save_memory`, `search_memory` y `get_context`. Se resuelve en este orden — el primero que aplica gana:
+
+### Nivel 1 — `area_map` en `.team-memory.json`
+
+Si el archivo tiene `area_map`, buscar el prefijo de ruta más específico que coincida con el archivo activo (o el directorio de trabajo actual):
+
+```json
+{
+  "project_slug": "ecommerce-platform",
+  "default_area": "general",
+  "area_map": {
+    "src/frontend/": "frontend",
+    "src/backend/":  "backend",
+    "packages/web/": "frontend",
+    "packages/api/": "backend",
+    "docker/":       "infra",
+    ".github/":      "infra",
+    "infra/":        "infra"
+  }
+}
+```
+
+Regla de matching: usar el prefijo más largo que coincida. Si el archivo activo es `src/frontend/components/button.ts` → `frontend`.
+
+### Nivel 2 — `default_area` en `.team-memory.json`
+
+Si no hay `area_map` o no hubo coincidencia, usar el valor de `default_area`. Si no está definido, el default implícito es `general`.
+
+```json
+{
+  "project_slug": "ecommerce-frontend",
+  "default_area": "frontend"
+}
+```
+
+Útil para repos que son puramente de una sola área — no hay que configurar `area_map`, con `default_area` alcanza.
+
+### Nivel 3 — Inferencia por heurística del agente
+
+Si los niveles 1 y 2 no aplican o no resuelven con confianza, inferir del contexto activo:
+
+| Señal | Área inferida |
+|---|---|
+| Imports: `@angular/`, `react`, `vue`, `svelte` | `frontend` |
+| Extensiones: `.component.ts`, `.module.ts`, `.scss`, `.css`, `.html` en contexto de UI | `frontend` |
+| Imports: `express`, `fastify`, `@nestjs/`, `pg`, `mongoose`, `prisma` | `backend` |
+| Archivos: `Dockerfile`, `docker-compose*.yml`, `*.tf`, `.github/workflows/` | `infra` |
+| Archivos: `nginx.conf`, `kubernetes/`, `helm/` | `infra` |
+| Contexto mixto o arquitectural sin señales claras | `general` |
+
+Solo usar esta inferencia cuando el contexto es claro. En caso de duda, pasar al Nivel 4.
+
+### Nivel 4 — Preguntar al dev
+
+Solo cuando los tres niveles anteriores no resuelven con confianza:
+
+```
+[team-memory] ¿En qué área enmarcamos esta entrada?
+  1) frontend
+  2) backend
+  3) infra
+  4) general
+
+(Podés evitar esta pregunta en el futuro agregando "default_area" o "area_map"
+en .team-memory.json)
+```
+
+Después de que el dev responda, el agente puede sugerir agregar o actualizar el `area_map` si la pregunta se repite con el mismo directorio.
+
+### Decisiones cross-area
+
+Cuando el conocimiento aplica a más de una capa (ej. "Decidimos usar JWT entre frontend y backend"), usar `area: 'general'` con tags específicos:
+
+```
+save_memory({
+  area: 'general',
+  type: 'DECISION',
+  tags: ['frontend', 'backend', 'jwt', 'authentication'],
+  ...
+})
+```
+
+Los tags permiten recuperar la entrada desde cualquier contexto de búsqueda. `area: 'general'` es exactamente para esto — conocimiento que no pertenece a una sola capa.
+
+### Mostrar el área resuelta
+
+Al persistir cualquier entrada, informar brevemente de dónde vino el área:
+
+```
+[team-memory] Guardado: "DECISION: Use JWT" → area: general (cross-area, tags: frontend, backend)
+[team-memory] Guardado: "BUG: Input validation" → area: frontend (area_map: src/frontend/)
+```
+
+
 
 `type` — 9 tipos, con reglas de clasificación:
 
