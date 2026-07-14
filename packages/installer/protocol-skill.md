@@ -18,15 +18,87 @@ Este skill define cómo usar las tools del servidor MCP `team-memory` durante cu
 | `update_memory` | Corregir o extender una entrada existente |
 | `compact_memory` | Compactar entradas viejas y poco usadas en SUMMARYs (solo a pedido explícito) |
 
-## Resolver `project_slug`
+## Resolver `project_slug` — flujo obligatorio al iniciar
 
-Todas las tools necesitan `project_slug`. Se resuelve una sola vez por sesión, en este orden:
+Antes de cualquier llamada MCP, resolvé el `project_slug` siguiendo esta cascada. Nunca asumir ni inventar un slug.
 
-1. Campo `name` en `package.json` del repo
-2. Si no existe, nombre del repositorio git (del remoto o de la carpeta)
-3. Normalizar a kebab-case minúscula (`Ecommerce Frontend` → `ecommerce-frontend`)
+### Paso 1 — Buscar `.team-memory.json`
 
-Reutilizar el mismo `project_slug` en todas las llamadas de la sesión.
+Buscá el archivo subiendo desde el directorio de trabajo actual hasta la raíz del repo (donde vive `.git`). El primero que encuentres gana — esto permite que monorepos tengan un config en el root y paquetes internos puedan tener el suyo propio.
+
+### Caso A — `.team-memory.json` existe y tiene `project_slug`
+
+Usarlo directamente, sin preguntar nada.
+
+```
+[team-memory] Proyecto: ecommerce-frontend (fuente: .team-memory.json)
+```
+
+### Caso B — `.team-memory.json` existe pero sin `project_slug`
+
+El archivo puede existir con otros campos de configuración futura pero sin el slug todavía. Seguir el flujo interactivo (ver abajo) y **actualizar el campo `project_slug` sin tocar los campos existentes**.
+
+### Caso C — `.team-memory.json` no existe
+
+Seguir el flujo interactivo (ver abajo) y **crear el archivo** con `{ "project_slug": "..." }`.
+
+### Flujo interactivo (Casos B y C)
+
+**1. Detectar candidatos** en este orden:
+- Remote git origin: `git remote get-url origin` → extraer solo el nombre del repo (`acme/ecommerce-frontend` → `ecommerce-frontend`)
+- Campo `name` en `package.json` más cercano (si existe)
+- Nombre de la carpeta raíz del repo (donde está `.git`)
+
+**2. Presentar opciones** (máximo 3 candidatos + opción libre):
+
+```
+[team-memory] No encontré project_slug en .team-memory.json.
+¿Cuál es el nombre de este proyecto en el sistema de memoria del equipo?
+
+  1) ecommerce-frontend  (remote git)
+  2) frontend            (package.json)
+  3) ecommerce           (carpeta raíz)
+  4) Otro — indicame cuál
+
+Respondé con el número o el nombre directamente.
+```
+
+**3. Normalizar** la respuesta a kebab-case minúscula:
+`Ecommerce Frontend` → `ecommerce-frontend`
+`my_app` → `my-app`
+
+**4. Escribir en `.team-memory.json`**:
+
+Caso B — actualizar campo sin destruir los demás:
+```json
+{
+  "project_slug": "ecommerce-frontend",
+  "otrosCamposQueYaEstaban": "..."
+}
+```
+
+Caso C — crear archivo:
+```json
+{
+  "project_slug": "ecommerce-frontend"
+}
+```
+
+**5. Confirmar al dev**:
+```
+[team-memory] Proyecto: ecommerce-frontend (guardado en .team-memory.json)
+Podés editar ese archivo manualmente si el nombre no es correcto.
+El archivo debería commitearse para que todos los devs del equipo usen el mismo slug.
+```
+
+### Siempre mostrar el slug activo
+
+Al inicio de cada sesión, independientemente del caso, informar brevemente:
+```
+[team-memory] Proyecto: <slug> · <N> entradas activas · <fuente>
+```
+
+Esto permite al dev detectar rápidamente si el slug es incorrecto y corregirlo antes de que el agente trabaje con el contexto equivocado.
 
 ## Áreas y tipos
 
