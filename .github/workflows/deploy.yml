@@ -1,0 +1,66 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t team-memory:${{ github.sha }} -t team-memory:latest .
+
+      - name: Save image
+        run: docker save team-memory:latest | gzip > team-memory-image.tar.gz
+
+      - name: Copy image to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host:     ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key:      ${{ secrets.SERVER_SSH_KEY }}
+          source:   team-memory-image.tar.gz
+          target:   /tmp/
+
+      - name: Deploy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host:     ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key:      ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/team-memory
+
+            echo "📦 Cargando imagen..."
+            docker load < /tmp/team-memory-image.tar.gz
+            rm /tmp/team-memory-image.tar.gz
+
+            echo "🔄 Actualizando código..."
+            git pull origin main
+
+            echo "🗄️  Aplicando migraciones..."
+            docker exec team-memory-db psql \
+              -U $DB_USER -d $DB_NAME \
+              -f /opt/team-memory/db/migrations/001_init.sql 2>/dev/null || true
+
+            echo "🚀 Reiniciando MCP server..."
+            docker compose -f docker-compose.prod.yml up -d --no-deps mcp-server
+
+            echo "⏳ Verificando health..."
+            sleep 5
+            curl -sf http://localhost:3100/health && echo "✅ OK" || exit 1
+
+      - name: Verify from CI
+        run: |
+          status=$(curl -sf -o /dev/null -w "%{http_code}" \
+            http://${{ secrets.SERVER_HOST }}:3100/health || echo "000")
+          [[ "$status" == "200" ]] \
+            && echo "✅ Health check OK" \
+            || (echo "❌ Health check failed: HTTP $status" && exit 1)
