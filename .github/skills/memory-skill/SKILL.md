@@ -27,7 +27,16 @@ Subagent attribution (previously a header inside `anti-patterns.md`, e.g. "HTML 
 
 ## Project identification
 
-Resolve `project_slug` once per session: `package.json` name → git repo name → kebab-case normalization. Reuse it for every MCP call in the session.
+Resolve `project_slug` once per session following the mandatory flow defined in `memory.agent.md` (Project Identification section). Summary:
+
+1. Search for `.team-memory.json` climbing from current dir to repo root (`.git`)
+2. **Case A** — file exists with `project_slug` → use it directly, report to dev
+3. **Case B** — file exists without `project_slug` → interactive flow → update file
+4. **Case C** — file doesn't exist → interactive flow → create file
+
+Interactive flow: detect candidates (git remote, package.json name, folder name), present up to 3 options + free input, normalize to kebab-case, write to `.team-memory.json`, confirm to dev with reminder to commit the file.
+
+Always display the active slug and its source at session start.
 
 ## Bootstrap mode
 

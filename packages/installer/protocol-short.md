@@ -2,11 +2,55 @@
 
 Tenés acceso al servidor MCP `team-memory` con las tools: `search_memory`, `get_context`, `save_memory`, `update_memory`, `list_projects`, `compact_memory`.
 
-- **Al iniciar cualquier sesión de código**: resolvé `project_slug` (nombre en `package.json` → nombre del repo git → nombre de la carpeta, normalizado a kebab-case) y llamá `get_context({ project_slug })` antes de tu primera respuesta sustancial sobre el proyecto.
-- **Antes de responder** preguntas técnicas sobre este proyecto (arquitectura, bugs conocidos, convenciones, decisiones previas), llamá `search_memory` primero — no asumas ni inventes contexto.
-- **Cuando corresponda persistir** (decisión con razonamiento, bug no obvio resuelto, anti-patrón descubierto, feature completado, convención confirmada): proponé guardarlo con `save_memory` y esperá confirmación del dev antes de escribir, salvo que el dev ya haya indicado que guardes automáticamente.
-- **Respuesta de `save_memory` con `duplicate_detected: true`**: el servidor encontró una entrada muy similar antes de insertar. Revisá el campo `duplicate` devuelto (id, title, content_preview, score). Si cubre el mismo tema → usá `update_memory` con ese `entry_id`. Si es genuinamente distinto a pesar del score alto → volvé a llamar `save_memory` con `force: true`. Nunca ignorar silenciosamente esta respuesta.
-- **Nunca ejecutes `compact_memory`** sin pedido explícito del dev, y siempre con `dry_run: true` primero, mostrando el preview antes de confirmar.
-- Si este repo tiene un agente de memoria propio más específico (ej. `.claude/agents/memory.md` o `.github/agents/memory.agent.md`), seguí sus reglas — este protocolo es el comportamiento base cuando no hay uno.
+### Resolving `project_slug` (required at startup)
 
-Detalle completo del protocolo (mapeo de tipos, criterios de clasificación, formato de contenido): ver skill `team-memory`.
+Before any other action, resolve `project_slug` using this flow:
+
+**Step 1 — Find `.team-memory.json`** by going up from the current directory until you find `.git` (the first one found wins — useful in monorepos).
+
+**Case A — It exists and has `project_slug`:**
+Use it directly. Inform the dev:
+
+```
+[team-memory] Project: <slug> (source: .team-memory.json)
+```
+
+**Case B — It exists but without `project_slug`**, or **Case C — It does not exist:**
+
+1. Detect candidates:
+   - Git remote name (e.g. `acme/ecommerce-frontend` → `ecommerce-frontend`)
+   - `name` field in `package.json`, if present
+   - Root repo folder name
+2. Present options to the dev:
+
+```
+[team-memory] I did not find project_slug. What is the name of this project?
+  1) ecommerce-frontend  (git remote)
+  2) frontend            (package.json)
+  3) mis-cosas           (folder)
+  4) Other — tell me which one
+```
+
+3. Wait for the dev's response.
+4. Normalize to lowercase kebab-case.
+5. Write to `.team-memory.json`:
+   - Case B: update the `project_slug` field without touching other existing fields
+   - Case C: create the file with `{ "project_slug": "..." }`
+6. Inform the dev:
+
+```
+[team-memory] Project: <slug> (saved in .team-memory.json)
+You can edit it manually if the name is incorrect.
+```
+
+The resolved `project_slug` is reused in all MCP calls for the session.
+
+### Behavior during the session
+
+- **Al iniciar**: llamá `get_context({ project_slug })` antes de tu primera respuesta sustancial.
+- **Antes de responder** preguntas técnicas sobre el proyecto, llamá `search_memory` — no asumas ni inventes contexto.
+- **Al persistir** (decisión, bug, convención, feature): `save_memory` responde `duplicate_detected: true` si ya existe algo similar — en ese caso usá `update_memory` sobre la entrada existente, o `save_memory` con `force: true` si es genuinamente distinto.
+- **Nunca ejecutes `compact_memory`** sin pedido explícito del dev, siempre con `dry_run: true` primero.
+- Si este repo tiene un agente de memoria más específico (`.claude/agents/memory.md`), seguí sus reglas — este protocolo es el comportamiento base.
+
+Detalle completo: skill `team-memory`.
