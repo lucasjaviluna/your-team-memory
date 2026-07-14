@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER:     teammemory
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB:       team_memory_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+        working-directory: packages/server
+
+      - name: Build
+        run: npm run build --workspace=packages/server
+
+      - name: Run DB migration
+        env:
+          PGPASSWORD: testpassword
+        run: |
+          psql -h localhost -U teammemory -d team_memory_test \
+            -f db/migrations/001_init.sql
+
+      - name: Verify pgvector
+        env:
+          PGPASSWORD: testpassword
+        run: |
+          result=$(psql -h localhost -U teammemory -d team_memory_test -tAc \
+            "SELECT extname FROM pg_extension WHERE extname = 'vector';")
+          [[ "$result" == "vector" ]] && echo "✅ pgvector OK" || (echo "❌ pgvector missing" && exit 1)
+
+      - name: Docker build test
+        run: docker build -t team-memory-test .
