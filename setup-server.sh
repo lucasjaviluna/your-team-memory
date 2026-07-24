@@ -18,9 +18,9 @@ echo "   ✓ Docker listo"
 # ── 2. Clonar repo ────────────────────────────────────────────────────────────
 echo ""
 echo "2/4 → Clonando repositorio..."
-git clone https://github.com/TU-ORG/team-memory.git /opt/team-memory
-cd /opt/team-memory
-echo "   ✓ Repositorio en /opt/team-memory"
+git clone https://github.com/lucasjaviluna/your-team-memory.git /opt/your-team-memory
+cd /opt/your-team-memory
+echo "   ✓ Repositorio en /opt/your-team-memory"
 
 # ── 3. Configurar .env ────────────────────────────────────────────────────────
 echo ""
