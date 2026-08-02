@@ -92,6 +92,19 @@ function commandExists(cmd) {
   }
 }
 
+function resolveWin32Command(cmd) {
+  if (process.platform !== 'win32') return cmd
+  try {
+    const resolved = execFileSync('where', [cmd], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim().split(/\r?\n/)[0]
+    return resolved || cmd
+  } catch {
+    return cmd
+  }
+}
+
 function detectTools() {
   const filter = ONLY ? ONLY.split(',') : null
   const want = (name) => !filter || filter.includes(name)
@@ -230,8 +243,19 @@ function registerClaudeMcp(url) {
 function registerVscodeMcp(url) {
   const payload = JSON.stringify({ name: SERVER_NAME, type: 'http', url })
   if (DRY_RUN) return { action: `would run: code --add-mcp '${payload}'` }
-  execFileSync('code', ['--add-mcp', payload], { stdio: 'pipe' })
-  return { action: 'registered' }
+  const codeCmd = resolveWin32Command('code')
+  try {
+    execFileSync(codeCmd, ['--add-mcp', payload], { stdio: 'pipe' })
+    return { action: 'registered' }
+  } catch (e) {
+    if (e.code === 'ENOENT') {
+      return {
+        action: 'failed',
+        error: `No se pudo ejecutar el comando VS Code CLI '${codeCmd}'. Verificá que VS Code esté instalado y que el comando 'code' esté disponible en PATH.`,
+      }
+    }
+    throw e
+  }
 }
 
 /** Merge directo de JSON para herramientas sin comando CLI de alta (Cursor, Copilot CLI) */
@@ -322,6 +346,13 @@ async function installVscode(url) {
   head('VS Code (GitHub Copilot)')
 
   const mcp = registerVscodeMcp(url)
+  if (mcp.action === 'failed') {
+    warn(`VS Code MCP → ${mcp.error}`)
+    warn(
+      'Omitiendo configuración de VS Code. Instalá la CLI "code" o abrí VS Code y registrá el servidor MCP manualmente.',
+    )
+    return
+  }
   ok(`MCP server (perfil global) → ${mcp.action}`)
 
   // VS Code Copilot Chat no tiene un archivo global de instrucciones editable
