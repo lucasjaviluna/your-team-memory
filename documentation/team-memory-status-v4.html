@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>team-memory — Estado del sistema v4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0d14;--s1:#111420;--s2:#171b28;--s3:#1d2232;
+  --border:#222840;--b2:#2a3050;
+  --text:#dde1ef;--muted:#64708a;--faint:#3c4460;
+  --purple:#9b8afb;--pd:#221e48;
+  --teal:#32d6bc;--td:#0c3230;
+  --amber:#ffb94a;--ad:#31220a;
+  --coral:#ff8585;--cd:#321414;
+  --green:#52e896;--gd:#0e3220;
+  --blue:#6bbeff;--bd:#0d2040;
+  --pink:#e879ab;--pkd:#2d0d1e;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15.5px;line-height:1.75}
+code{font-family:'JetBrains Mono',monospace;font-size:12.5px;background:var(--s3);color:var(--teal);padding:2px 7px;border-radius:5px}
+pre{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;font-size:13px;color:var(--text);line-height:1.7}
+
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+@media(max-width:860px){.layout{grid-template-columns:1fr}}
+
+.sb{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--s1);border-right:1px solid var(--border);padding:22px 0}
+@media(max-width:860px){.sb{display:none}}
+.sb-logo{padding:0 20px 20px;border-bottom:1px solid var(--border);margin-bottom:10px}
+.sb-name{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#fff}
+.sb-ver{font-size:11px;color:var(--muted);margin-top:2px}
+.live-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--green);margin-top:8px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:p 2s ease-in-out infinite}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.2}}
+.ng{font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);padding:14px 20px 5px}
+.nl{display:block;padding:7px 20px;font-size:12.5px;color:var(--muted);text-decoration:none;border-left:2px solid transparent;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nl:hover,.nl.on{color:var(--purple);border-left-color:var(--purple);background:rgba(155,138,251,.07)}
+
+main{overflow:hidden}
+.sec{padding:52px 50px;border-bottom:1px solid var(--border)}
+@media(max-width:680px){.sec{padding:36px 22px}}
+
+.hero{padding:76px 50px 60px;background:radial-gradient(ellipse 80% 55% at 50% 0%,rgba(155,138,251,.13),transparent 72%);border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+canvas{position:absolute;inset:0;opacity:.28;pointer-events:none}
+.ey{display:inline-flex;align-items:center;gap:7px;background:var(--pd);border:1px solid rgba(155,138,251,.4);color:var(--purple);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:5px 15px;border-radius:20px;margin-bottom:20px}
+h1{font-family:'JetBrains Mono',monospace;font-size:clamp(26px,4.5vw,42px);font-weight:700;color:#fff;letter-spacing:-.5px;line-height:1.18;margin-bottom:16px}
+h1 em{color:var(--purple);font-style:normal}
+.hsub{font-size:15.5px;color:var(--muted);max-width:560px;margin-bottom:30px;line-height:1.75}
+.sts{display:flex;gap:28px;flex-wrap:wrap}
+.sn{font-family:'JetBrains Mono',monospace;font-size:23px;font-weight:700;color:#fff}
+.sl{font-size:11.5px;color:var(--muted);margin-top:2px}
+
+.kk{font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:8px}
+h2{font-size:23px;font-weight:700;color:#fff;margin-bottom:12px;letter-spacing:-.2px}
+.lead{font-size:14.5px;color:var(--muted);margin-bottom:22px;max-width:640px;line-height:1.75}
+h3{font-size:16px;font-weight:600;color:#fff;margin:22px 0 10px}
+h4{font-size:14.5px;font-weight:600;color:#fff;margin:12px 0 6px}
+
+.card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:600px){.g2,.g3{grid-template-columns:1fr}}
+.card p{font-size:13.5px;color:var(--muted);line-height:1.7;margin-top:6px}
+
+.tw{border:1px solid var(--border);border-radius:10px;overflow:hidden;overflow-x:auto;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{background:var(--s2);padding:9px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+td{padding:10px 16px;border-top:1px solid var(--border);line-height:1.6;vertical-align:top}
+tr:hover td{background:rgba(255,255,255,.014)}
+
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:5px}
+.new-badge{background:var(--gd);color:var(--green);font-size:9px;vertical-align:middle;margin-left:6px}
+
+.cl{list-style:none;margin:8px 0}
+.cl li{display:flex;gap:9px;padding:5px 0;font-size:14px;color:var(--text);line-height:1.65}
+.cl.ch li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
+.cl.wa li::before{content:'⚠';color:var(--amber);flex-shrink:0}
+.cl.do li::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:9px}
+
+.ca{border-radius:10px;padding:13px 17px;margin:14px 0;font-size:13.5px;line-height:1.65;display:flex;gap:10px;align-items:flex-start}
+.ca-i{background:rgba(107,190,255,.07);border:1px solid rgba(107,190,255,.25)}
+.ca-t{background:rgba(82,232,150,.07);border:1px solid rgba(82,232,150,.25)}
+.ca-w{background:rgba(255,185,74,.07);border:1px solid rgba(255,185,74,.25)}
+.ca-n{background:rgba(155,138,251,.07);border:1px solid rgba(155,138,251,.25)}
+
+.steps{display:flex;flex-direction:column}
+.step{display:flex;gap:14px;padding:13px 0;border-bottom:1px solid var(--border)}
+.step:last-child{border-bottom:none}
+.snum{width:28px;height:28px;border-radius:50%;background:var(--pd);color:var(--purple);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.step h4{font-size:14.5px;font-weight:600;color:#fff;margin:0 0 3px}
+.step p{font-size:13.5px;color:var(--muted);line-height:1.65;margin:0}
+
+.cascade{display:flex;flex-direction:column}
+.cl-item{display:flex;gap:14px;padding:12px 16px;border:1px solid var(--border);background:var(--s2)}
+.cl-item:first-child{border-radius:10px 10px 0 0}
+.cl-item:last-child{border-radius:0 0 10px 10px;border-top:none}
+.cl-item:not(:first-child):not(:last-child){border-top:none}
+.cl-num{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--purple);background:var(--pd);padding:2px 8px;border-radius:4px;flex-shrink:0;margin-top:2px;height:fit-content}
+.cl-title{font-size:13.5px;font-weight:600;color:#fff;margin-bottom:3px}
+.cl-desc{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* TUI Screen Preview */
+.tui-window{background:#0d0f1a;border:1px solid #2a3050;border-radius:10px;overflow:hidden;font-family:'JetBrains Mono',monospace;font-size:12.5px;margin:14px 0}
+.tui-titlebar{background:#171b28;padding:6px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #2a3050}
+.tui-dot{width:10px;height:10px;border-radius:50%}
+.tui-body{padding:14px 18px;line-height:1.65;color:#dde1ef}
+.tui-header{color:#32d6bc;border-bottom:1px solid #2a3050;padding-bottom:6px;margin-bottom:10px}
+.tui-row{padding:2px 0}
+.tui-selected{background:rgba(107,190,255,.15);color:#fff;padding:1px 4px;border-radius:3px}
+.tui-dim{color:#64708a}
+.tui-green{color:#52e896}
+.tui-yellow{color:#ffb94a}
+.tui-cyan{color:#32d6bc}
+.tui-blue{color:#6bbeff}
+.tui-red{color:#ff8585}
+.tui-pink{color:#e879ab}
+.tui-bar{background:#1d2232;padding:6px 14px;border-top:1px solid #2a3050;display:flex;gap:14px;color:#64708a;font-size:11.5px}
+.tui-key{background:#2a3050;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px}
+
+.ph{display:flex;flex-direction:column}
+.ph-item{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)}
+.ph-item:last-child{border-bottom:none}
+.ph-v{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;flex-shrink:0;margin-top:2px;min-width:48px;text-align:center}
+.ph-title{font-size:14px;font-weight:600;color:#fff;margin-bottom:3px}
+.ph-desc{font-size:13px;color:var(--muted);line-height:1.6}
+
+.ri{display:flex;gap:13px;padding:12px 0;border-bottom:1px solid var(--border)}
+.ri:last-child{border-bottom:none}
+.rt{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;padding:3px 10px;border-radius:4px;min-width:60px;text-align:center;margin-top:2px;flex-shrink:0}
+.ri h4{font-size:14px;font-weight:600;color:#fff;margin:0 0 3px}
+.ri p{font-size:13px;color:var(--muted);line-height:1.6;margin:0}
+
+footer{padding:30px 50px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media(max-width:680px){footer{padding:22px 22px;flex-direction:column;align-items:flex-start}}
+.fl{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--faint)}
+.fr{display:flex;gap:7px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sb">
+  <div class="sb-logo">
+    <div class="sb-name">team-memory</div>
+    <div class="sb-ver">v4.0 · V4 + Patches V3.1–V4.1</div>
+    <div class="live-row"><div class="dot"></div>7 tools · TUI Phase 1</div>
+  </div>
+  <span class="ng">Sistema</span>
+  <a href="#overview"     class="nl on">Overview</a>
+  <a href="#architecture" class="nl">Arquitectura</a>
+  <a href="#transport"    class="nl">Transportes</a>
+  <span class="ng">Configuración</span>
+  <a href="#config-file"  class="nl">.team-memory.json</a>
+  <a href="#slug"         class="nl">project_slug</a>
+  <a href="#area"         class="nl">area</a>
+  <span class="ng">Instalación</span>
+  <a href="#installer"    class="nl">Instalador CLI</a>
+  <a href="#install-tui"  class="nl">install-tui</a>
+  <span class="ng">TUI</span>
+  <a href="#tui"          class="nl">Terminal UI</a>
+  <a href="#tui-screens"  class="nl">Pantallas</a>
+  <a href="#tui-run"      class="nl">Cómo ejecutar</a>
+  <span class="ng">MCP</span>
+  <a href="#tools"        class="nl">Las 7 tools</a>
+  <a href="#dedup"        class="nl">Deduplicación</a>
+  <a href="#types"        class="nl">9 tipos</a>
+  <a href="#agent-flow"   class="nl">Flujo del agente</a>
+  <span class="ng">Historial</span>
+  <a href="#patches"      class="nl">Patches</a>
+  <a href="#stack"        class="nl">Stack técnico</a>
+  <a href="#eval"         class="nl">Evaluación</a>
+  <a href="#roadmap"      class="nl">Roadmap</a>
+</nav>
+
+<main>
+
+<!-- HERO -->
+<div class="hero" id="top">
+  <canvas id="cv"></canvas>
+  <div class="ey"><div class="dot"></div>v4.0 · V4 + Patches V3.1–V4.1</div>
+  <h1>team-<em>memory</em><br>Memoria persistente para<br>equipos que trabajan con IA</h1>
+  <p class="hsub">Servidor MCP on-premise con 7 tools, instalación global en un comando, Terminal UI interactiva, y configuración inteligente por repositorio mediante <code>.team-memory.json</code>.</p>
+  <div class="sts">
+    <div><div class="sn">7</div><div class="sl">MCP tools</div></div>
+    <div><div class="sn">5</div><div class="sl">herramientas IA</div></div>
+    <div><div class="sn">5</div><div class="sl">pantallas TUI</div></div>
+    <div><div class="sn">9</div><div class="sl">tipos de entrada</div></div>
+    <div><div class="sn">4</div><div class="sl">niveles de área</div></div>
+  </div>
+</div>
+
+<!-- OVERVIEW -->
+<section class="sec" id="overview">
+  <div class="kk">El sistema</div>
+  <h2>¿Qué es team-memory?</h2>
+  <p class="lead">El conocimiento generado en sesiones de IA — decisiones, bugs resueltos, convenciones, anti-patrones — se pierde cuando se cierra la terminal. team-memory lo captura, lo estructura y lo hace disponible para cualquier dev, en cualquier sesión futura, sobre cualquier proyecto del equipo.</p>
+  <div class="g3">
+    <div class="card"><h4>🔐 100% on-premise</h4><p>Embeddings y generación con Ollama local. Nada del conocimiento del equipo sale de la red interna.</p></div>
+    <div class="card"><h4>🌐 Instalación global</h4><p>Un comando configura el MCP en Claude Code, Copilot, VS Code, Cursor y OpenCode. Sin tocar configs por proyecto.</p></div>
+    <div class="card"><h4>🖥️ TUI interactiva</h4><p>Terminal UI para buscar, navegar, editar y compactar entradas desde la línea de comandos.</p></div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section class="sec" id="architecture">
+  <div class="kk">Cómo está construido</div>
+  <h2>Arquitectura en tres capas</h2>
+  <div style="display:flex;flex-direction:column">
+    <div style="border-radius:12px 12px 0 0;border:1px solid rgba(155,138,251,.3);background:rgba(155,138,251,.04);padding:18px 20px">
+      <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--purple);margin-bottom:12px">Capa 1 — Clientes de IA + TUI</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:#fff">Claude Code</strong> <span style="color:var(--muted);font-size:11px">agente migrado</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:#fff">GitHub Copilot</strong> <span style="color:var(--muted);font-size:11px">agente migrado</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:#fff">VS Code</strong> <span style="color:var(--muted);font-size:11px">+ Copilot</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:#fff">Cursor</strong></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:#fff">OpenCode</strong> <span style="color:var(--green);font-size:10px">nuevo</span></div>
+        <div style="background:var(--s3);border:1px solid rgba(155,138,251,.3);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:var(--purple)">memory-tui</strong> <span style="color:var(--muted);font-size:11px">TUI interactiva</span></div>
+      </div>
+    </div>
+    <div style="border:1px solid rgba(50,214,188,.3);border-top:none;background:rgba(50,214,188,.04);padding:18px 20px">
+      <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);margin-bottom:12px">Capa 2 — MCP Server · Node.js 22 + TypeScript · 7 tools</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px">
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:8px 11px"><code style="font-size:10.5px;display:block;margin-bottom:2px">save_memory</code><span style="font-size:11px;color:var(--muted)">Persiste + dedup</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:8px 11px"><code style="font-size:10.5px;display:block;margin-bottom:2px">update_memory</code><span style="font-size:11px;color:var(--muted)">Corrige / extiende</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:8px 11px"><code style="font-size:10.5px;display:block;margin-bottom:2px">search_memory</code><span style="font-size:11px;color:var(--muted)">Búsqueda híbrida</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:8px 11px"><code style="font-size:10.5px;display:block;margin-bottom:2px">get_context</code><span style="font-size:11px;color:var(--muted)">Contexto de sesión</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:8px 11px"><code style="font-size:10.5px;display:block;margin-bottom:2px">list_projects</code><span style="font-size:11px;color:var(--muted)">Lista proyectos</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:8px 11px"><code style="font-size:10.5px;display:block;margin-bottom:2px">get_memory_stats</code><span style="font-size:11px;color:var(--muted)">Health y accesos</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:8px 11px"><code style="font-size:10.5px;display:block;margin-bottom:2px">compact_memory</code><span style="font-size:11px;color:var(--muted)">Compacta lo viejo</span></div>
+      </div>
+    </div>
+    <div style="border-radius:0 0 12px 12px;border:1px solid rgba(107,190,255,.3);border-top:none;background:rgba(107,190,255,.04);padding:18px 20px">
+      <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--blue);margin-bottom:12px">Capa 3 — Almacenamiento on-premise · Docker</div>
+      <div class="g2">
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:11px 13px"><strong style="font-size:13px;display:block;color:#fff;margin-bottom:3px">PostgreSQL 16 + pgvector</strong><span style="font-size:12px;color:var(--muted)">Texto + vectores 768d. Índices HNSW + GIN. Access log con author y user_id reservado.</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:11px 13px"><strong style="font-size:13px;display:block;color:#fff;margin-bottom:3px">Ollama (local)</strong><span style="font-size:12px;color:var(--muted)">nomic-embed-text (embeddings 768d) · llama3 (SUMMARYs, temperatura 0.2)</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRANSPORT -->
+<section class="sec" id="transport">
+  <div class="kk">Transporte</div>
+  <h2>Modos de conexión</h2>
+  <div class="g2">
+    <div class="card">
+      <h4>💻 stdio — servidor local</h4>
+      <p>El MCP corre como subproceso del cliente IA. Sin red, sin puertos expuestos. Configurado con <code>MCP_TRANSPORT=stdio</code> en el <code>.env</code>.</p>
+      <pre style="margin-top:10px"><code style="font-size:11.5px">{ "command": "node",
+  "args":    ["...dist/index.js"],
+  "env":     { "MCP_TRANSPORT": "stdio" } }</code></pre>
+      <div class="ca ca-w" style="margin-top:10px;font-size:12.5px"><div>⚠️</div><div>Expone credenciales al cliente. Solo para administradores del servidor.</div></div>
+    </div>
+    <div class="card">
+      <h4>🌐 Streamable HTTP — producción</h4>
+      <p>Servidor compartido del equipo. Endpoint único <code>/mcp</code>, modo stateless. Las credenciales viven solo en el servidor.</p>
+      <pre style="margin-top:10px"><code style="font-size:11.5px"># .env
+MCP_TRANSPORT=http
+MCP_PORT=3100         # puerto configurable</code></pre>
+      <pre><code style="font-size:11.5px">{ "url": "http://10.0.0.5:3100/mcp" }</code></pre>
+    </div>
+  </div>
+  <div class="ca ca-i"><div>ℹ️</div><div>Streamable HTTP es el transporte vigente del protocolo MCP (SSE quedó deprecado en marzo 2025). La TUI también usa este endpoint — no necesita acceso directo a la DB.</div></div>
+</section>
+
+<!-- CONFIG FILE -->
+<section class="sec" id="config-file">
+  <div class="kk">Config por repositorio</div>
+  <h2>.team-memory.json</h2>
+  <p class="lead">Archivo commiteado en el root de cada repo. Define el slug del proyecto y la resolución de área. Todos los devs que clonan el repo lo heredan automáticamente.</p>
+  <div class="g2">
+    <div>
+      <h3>Repo de una sola capa</h3>
+      <pre><code>{
+  "project_slug": "admin-dashboard",
+  "default_area": "frontend"
+}</code></pre>
+    </div>
+    <div>
+      <h3>Repo fullstack</h3>
+      <pre><code>{
+  "project_slug": "ecommerce-platform",
+  "default_area": "general",
+  "area_map": {
+    "src/frontend/": "frontend",
+    "src/backend/":  "backend",
+    "docker/":       "infra",
+    ".github/":      "infra"
+  }
+}</code></pre>
+    </div>
+  </div>
+  <div class="ca ca-t"><div>✅</div><div>El archivo no contiene credenciales — es seguro commitearlo. Define qué proyecto es y cómo mapear directorios a áreas.</div></div>
+</section>
+
+<!-- PROJECT SLUG -->
+<section class="sec" id="slug">
+  <div class="kk">Patch V3.2</div>
+  <h2>Resolución de project_slug</h2>
+  <p class="lead">El agente busca <code>.team-memory.json</code> subiendo desde el directorio actual hasta el root del repo (<code>.git</code>). El primero que encuentre gana — útil en monorepos.</p>
+  <div class="cascade">
+    <div class="cl-item"><div class="cl-num">A</div><div><div class="cl-title">Existe y tiene <code>project_slug</code></div><div class="cl-desc">Usar directamente. Informar: <code>[team-memory] Proyecto: ecommerce-frontend (.team-memory.json)</code></div></div></div>
+    <div class="cl-item"><div class="cl-num">B</div><div><div class="cl-title">Existe pero sin <code>project_slug</code></div><div class="cl-desc">Flujo interactivo → actualizar el campo sin tocar otros campos del archivo.</div></div></div>
+    <div class="cl-item"><div class="cl-num">C</div><div><div class="cl-title">No existe</div><div class="cl-desc">Flujo interactivo → crear el archivo con <code>&#123; "project_slug": "..." &#125;</code>. Recordar commitearlo.</div></div></div>
+  </div>
+  <h3>Flujo interactivo (B y C)</h3>
+  <pre><code>[team-memory] No encontré project_slug. ¿Cuál es el nombre del proyecto?
+  1) ecommerce-frontend  (remote git)
+  2) frontend            (package.json)
+  3) ecommerce           (carpeta raíz)
+  4) Otro — indicame cuál</code></pre>
+</section>
+
+<!-- AREA -->
+<section class="sec" id="area">
+  <div class="kk">Patch V3.3</div>
+  <h2>Resolución de area — cascada de 4 niveles</h2>
+  <p class="lead">Sistemática y consistente entre sesiones y devs. El primero que aplica gana.</p>
+  <div class="cascade">
+    <div class="cl-item"><div class="cl-num">1</div><div><div class="cl-title"><code>area_map</code> en <code>.team-memory.json</code></div><div class="cl-desc">Prefijo de ruta más largo que coincide con el archivo activo. <code>src/frontend/button.ts</code> + mapa <code>"src/frontend/":"frontend"</code> → <code>frontend</code>.</div></div></div>
+    <div class="cl-item"><div class="cl-num">2</div><div><div class="cl-title"><code>default_area</code> en <code>.team-memory.json</code></div><div class="cl-desc">Área default del repo. Para repos de una sola capa, con esto alcanza.</div></div></div>
+    <div class="cl-item"><div class="cl-num">3</div><div><div class="cl-title">Inferencia heurística</div><div class="cl-desc">Imports (<code>@angular/</code>, <code>express</code>, <code>prisma</code>), extensiones (<code>.component.ts</code>, <code>.scss</code>), archivos (<code>Dockerfile</code>, <code>docker-compose.yml</code>).</div></div></div>
+    <div class="cl-item"><div class="cl-num">4</div><div><div class="cl-title">Preguntar al dev</div><div class="cl-desc">Solo cuando los tres niveles anteriores fallan. Con tip de cómo evitarlo la próxima vez.</div></div></div>
+  </div>
+  <div class="ca ca-n"><div>💡</div><div><strong>Cross-area:</strong> usar <code>area: 'general'</code> con tags específicos (<code>['frontend','backend']</code>). El área <code>general</code> es exactamente para conocimiento que aplica a más de una capa.</div></div>
+</section>
+
+<!-- INSTALLER -->
+<section class="sec" id="installer">
+  <div class="kk">Onboarding</div>
+  <h2>Instalador CLI — global, una vez</h2>
+  <p class="lead">Un comando configura el MCP en todas las herramientas de IA detectadas y registra el protocolo de uso. No requiere clonar el repo del servidor.</p>
+  <pre><code>npx github:tu-org/team-memory install</code></pre>
+
+  <h3>Resolución de URL</h3>
+  <div class="cascade">
+    <div class="cl-item"><div class="cl-num">1</div><div><div class="cl-title"><code>--url</code> explícito</div><div class="cl-desc">Siempre tiene prioridad. Útil para staging u otro servidor.</div></div></div>
+    <div class="cl-item"><div class="cl-num">2</div><div><div class="cl-title"><code>team-memory.config.json</code> → <code>defaultUrl</code></div><div class="cl-desc">URL por defecto del repo de la organización. Configurada una vez por el tech lead.</div></div></div>
+    <div class="cl-item"><div class="cl-num">3</div><div><div class="cl-title">Variable de entorno <code>TEAM_MEMORY_URL</code></div><div class="cl-desc">Para distribución vía npm o scripts de onboarding automatizados.</div></div></div>
+  </div>
+
+  <h3>Herramientas soportadas</h3>
+  <div class="tw">
+    <table>
+      <tr><th>Herramienta</th><th>Detección</th><th>Registro MCP</th><th>Instrucciones</th></tr>
+      <tr><td><strong>Claude Code</strong></td><td><code>which claude</code></td><td><code>claude mcp add --scope user</code></td><td><code>~/.claude/CLAUDE.md</code> + skill</td></tr>
+      <tr><td><strong>VS Code + Copilot</strong></td><td><code>which code</code></td><td><code>code --add-mcp</code></td><td>Skill Copilot compartido</td></tr>
+      <tr><td><strong>Copilot CLI</strong></td><td><code>~/.copilot/</code></td><td><code>~/.copilot/mcp-config.json</code></td><td><code>~/.copilot/copilot-instructions.md</code></td></tr>
+      <tr><td><strong>Cursor</strong></td><td><code>~/.cursor/</code></td><td><code>~/.cursor/mcp.json</code></td><td>⚠️ paso manual (Settings → Rules)</td></tr>
+      <tr><td><strong>OpenCode</strong> <span class="badge new-badge">nuevo</span></td><td><code>which opencode</code> / <code>~/.config/opencode/</code></td><td><code>~/.config/opencode/opencode.json</code> clave <code>mcp</code></td><td><code>instructions[]</code> → archivo separado</td></tr>
+    </table>
+  </div>
+
+  <h3>Garantías</h3>
+  <ul class="cl ch">
+    <li>Backup automático antes de modificar archivos (<code>.bak-&lt;timestamp&gt;</code>)</li>
+    <li>Marcadores <code>&lt;!-- team-memory:start/end --&gt;</code> — nunca toca contenido fuera</li>
+    <li>Idempotente — correrlo N veces da el mismo resultado que correrlo 1</li>
+    <li><code>--dry-run</code> muestra exactamente qué se escribiría sin tocar nada</li>
+    <li>Detección de conflictos semánticos con instrucciones existentes</li>
+  </ul>
+</section>
+
+<!-- INSTALL TUI -->
+<section class="sec" id="install-tui">
+  <div class="kk">Patch V4.1</div>
+  <h2>Instalación de la TUI</h2>
+  <p class="lead">La TUI requiere tener el repo clonado — a diferencia del instalador del MCP que no necesita clonar nada. El subcomando <code>install-tui</code> automatiza todo el proceso.</p>
+  <pre><code># Desde la raíz del repo clonado
+git clone https://github.com/tu-org/team-memory
+cd team-memory
+npm run install-tui
+
+# Equivalente — mismo efecto
+node packages/installer/cli.mjs install-tui</code></pre>
+
+  <h3>Qué hace install-tui</h3>
+  <div class="steps">
+    <div class="step"><div class="snum">1</div><div><h4>Verificar repo</h4><p>Busca <code>packages/tui/package.json</code>. Si no existe, muestra instrucciones para clonar.</p></div></div>
+    <div class="step"><div class="snum">2</div><div><h4>npm install</h4><p>Instala las dependencias de la TUI en <code>packages/tui/node_modules/</code>.</p></div></div>
+    <div class="step"><div class="snum">3</div><div><h4>Compilar TypeScript</h4><p>Corre <code>npx tsc</code> en el paquete de la TUI y genera <code>packages/tui/dist/</code>.</p></div></div>
+    <div class="step"><div class="snum">4</div><div><h4>Crear comando global</h4><p>Escribe <code>~/.local/bin/memory-tui</code> con permisos 755. Avisa si el directorio no está en el PATH.</p></div></div>
+  </div>
+</section>
+
+<!-- TUI -->
+<section class="sec" id="tui">
+  <div class="kk">V4 — Terminal UI Phase 1</div>
+  <h2>memory-tui</h2>
+  <p class="lead">Interfaz de terminal para gestionar la memoria del equipo sin pasar por un agente de IA. Comunicación via HTTP al mismo servidor MCP — funciona con el servidor local o el de producción.</p>
+
+  <div class="g2">
+    <div class="card">
+      <h4>Stack</h4>
+      <ul class="cl do">
+        <li>TypeScript + React + Ink 5</li>
+        <li>ink-select-input@6 + ink-text-input@6</li>
+        <li>tsx como runtime (NodeNext module resolution)</li>
+        <li>Comunicación HTTP directa al endpoint <code>/mcp</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Qué NO incluye (Phase 2)</h4>
+      <ul class="cl wa">
+        <li><code>delete_memory</code> — requiere API Key admin</li>
+        <li>Bun compile a binario standalone</li>
+        <li>Selector interactivo de proyecto al arrancar</li>
+        <li>Autenticación por usuario</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- TUI SCREENS -->
+<section class="sec" id="tui-screens">
+  <div class="kk">TUI · Pantallas</div>
+  <h2>5 pantallas disponibles</h2>
+
+  <!-- Dashboard preview -->
+  <h3>Dashboard — stats del proyecto</h3>
+  <div class="tui-window">
+    <div class="tui-titlebar">
+      <div class="tui-dot" style="background:#ff5f56"></div>
+      <div class="tui-dot" style="background:#ffbd2e"></div>
+      <div class="tui-dot" style="background:#27c93f"></div>
+      <span style="color:#64708a;font-size:11px;margin-left:8px">memory-tui</span>
+    </div>
+    <div class="tui-body">
+      <div class="tui-header">team-memory › <span style="color:#32d6bc">Dashboard</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ◉ ecommerce-platform &nbsp; localhost:3100</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="border:1px solid #2a3050;padding:6px 14px;border-radius:6px;text-align:center"><div class="tui-cyan" style="font-size:16px;font-weight:700">482</div><div class="tui-dim">Total</div></div>
+        <div style="border:1px solid #2a3050;padding:6px 14px;border-radius:6px;text-align:center"><div class="tui-green" style="font-size:16px;font-weight:700">421</div><div class="tui-dim">Activas</div></div>
+        <div style="border:1px solid #2a3050;padding:6px 14px;border-radius:6px;text-align:center"><div class="tui-blue" style="font-size:16px;font-weight:700">1.2k</div><div class="tui-dim">Accesos</div></div>
+        <div style="border:1px solid #2a3050;padding:6px 14px;border-radius:6px;text-align:center"><div class="tui-yellow" style="font-size:16px;font-weight:700">34</div><div class="tui-dim">Sin acceso</div></div>
+        <div style="border:1px solid #2a3050;padding:6px 14px;border-radius:6px;text-align:center"><div class="tui-red" style="font-size:16px;font-weight:700">12</div><div class="tui-dim">Compact</div></div>
+      </div>
+      <div style="border:1px solid #2a3050;padding:8px 12px;border-radius:6px;margin-bottom:8px">
+        <div style="color:#fff;font-weight:600;margin-bottom:6px">Más consultadas (30d)</div>
+        <div class="tui-row"> 1. <span class="tui-blue"> 47acc</span> <span class="tui-dim">[DECISION]</span> JWT authentication strategy — refresh tokens</div>
+        <div class="tui-row"> 2. <span class="tui-blue"> 31acc</span> <span class="tui-dim">[PATTERN] </span> React Query setup for data fetching</div>
+        <div class="tui-row"> 3. <span class="tui-blue"> 28acc</span> <span class="tui-dim">[ANTI_PAT]</span> Direct DB calls from components</div>
+      </div>
+    </div>
+    <div class="tui-bar">
+      <span><span class="tui-key">l</span> Entradas</span>
+      <span><span class="tui-key">s</span> Buscar</span>
+      <span><span class="tui-key">c</span> Compactar</span>
+      <span><span class="tui-key">q</span> Salir</span>
+    </div>
+  </div>
+
+  <!-- EntryList preview -->
+  <h3>EntryList — lista navegable con filtros</h3>
+  <div class="tui-window">
+    <div class="tui-titlebar">
+      <div class="tui-dot" style="background:#ff5f56"></div>
+      <div class="tui-dot" style="background:#ffbd2e"></div>
+      <div class="tui-dot" style="background:#27c93f"></div>
+      <span style="color:#64708a;font-size:11px;margin-left:8px">memory-tui</span>
+    </div>
+    <div class="tui-body">
+      <div class="tui-header">team-memory › <span style="color:#52e896">Entradas</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ◉ ecommerce-platform</div>
+      <div class="tui-dim" style="margin-bottom:8px">421 entradas · área:frontend · 1/421</div>
+      <div class="tui-row"><span style="color:var(--muted)">  </span> <span style="color:#ff8585">[ANTI_PAT  ]</span> <span style="color:#32d6bc">frontend </span> Direct API calls from UI components &nbsp;<span class="tui-dim">12</span></div>
+      <div class="tui-row"><span style="color:var(--muted)">  </span> <span style="color:#6bbeff">[DECISION  ]</span> <span style="color:#32d6bc">frontend </span> Use React Query for all data fetching &nbsp;&nbsp;&nbsp;<span class="tui-dim">31</span></div>
+      <div class="tui-selected tui-row">▶ <span style="color:#52e896">[PATTERN   ]</span> <span style="color:#32d6bc">frontend </span> Error boundary pattern for async views<span class="tui-dim"> 8</span></div>
+      <div class="tui-row"><span style="color:var(--muted)">  </span> <span style="color:#ff8585">[BUG       ]</span> <span style="color:#32d6bc">frontend </span> useEffect cleanup missing on unmount &nbsp;&nbsp;&nbsp;<span class="tui-dim">5</span></div>
+      <div class="tui-row"><span style="color:var(--muted)">  </span> <span style="color:#52e896">[FIX       ]</span> <span style="color:#32d6bc">frontend </span> Added AbortController to cancel requests<span class="tui-dim">5</span></div>
+    </div>
+    <div class="tui-bar">
+      <span><span class="tui-key">↑↓</span> Navegar</span>
+      <span><span class="tui-key">Enter</span> Ver</span>
+      <span><span class="tui-key">a</span> Área</span>
+      <span><span class="tui-key">t</span> Tipo</span>
+      <span><span class="tui-key">s</span> Buscar</span>
+      <span><span class="tui-key">Esc</span> Volver</span>
+    </div>
+  </div>
+
+  <!-- Search preview -->
+  <h3>Search — búsqueda semántica</h3>
+  <div class="tui-window">
+    <div class="tui-titlebar">
+      <div class="tui-dot" style="background:#ff5f56"></div>
+      <div class="tui-dot" style="background:#ffbd2e"></div>
+      <div class="tui-dot" style="background:#27c93f"></div>
+    </div>
+    <div class="tui-body">
+      <div class="tui-header">team-memory › <span style="color:#ffb94a">Búsqueda</span></div>
+      <div style="border:1px solid #32d6bc;border-radius:6px;padding:6px 12px;margin-bottom:10px;display:flex;gap:8px">
+        <span class="tui-cyan">🔍</span>
+        <span>JWT authentication security issues</span>
+        <span class="tui-dim" style="animation:blink 1s infinite">█</span>
+      </div>
+      <div class="tui-dim" style="margin-bottom:6px">3 resultados</div>
+      <div style="border:1px solid #6bbeff;border-radius:4px;padding:4px 8px;margin-bottom:4px">
+        <div class="tui-row">▶ <span class="tui-green">0.0312</span> <span style="color:#6bbeff">[DECISION  ]</span> <span class="tui-cyan">backend  </span> JWT refresh token rotation strategy</div>
+        <div class="tui-dim" style="padding-left:24px;font-size:11.5px">We decided to implement rotating refresh tokens to prevent token theft. Each refresh...</div>
+      </div>
+      <div class="tui-row">  <span class="tui-yellow">0.0241</span> <span style="color:#ff8585">[ANTI_PAT  ]</span> <span class="tui-cyan">backend  </span> Storing JWT secret in source code</div>
+      <div class="tui-row">  <span class="tui-dim"  >0.0198</span> <span style="color:#52e896">[FIX       ]</span> <span class="tui-cyan">backend  </span> JWT validation now rejects expired tokens correctly</div>
+    </div>
+    <div class="tui-bar">
+      <span><span class="tui-key">↑↓</span> Navegar</span>
+      <span><span class="tui-key">Enter</span> Ver detalle</span>
+      <span><span class="tui-key">n</span> Nueva búsqueda</span>
+      <span><span class="tui-key">Esc</span> Limpiar</span>
+    </div>
+  </div>
+
+  <h3>EntryDetail — vista completa + edición</h3>
+  <p style="font-size:14px;color:var(--muted);margin-bottom:10px">Muestra el contenido completo con scroll. Permite agregar texto (<code>append_content</code>), tags (<code>add_tags</code>) y cambiar el estado (<code>status</code>).</p>
+
+  <h3>Compact — dry-run + confirmación</h3>
+  <p style="font-size:14px;color:var(--muted)">Análisis automático de candidatos a compactación, preview de los grupos, confirmación interactiva antes de ejecutar. Nunca compacta SUMMARY ni TASK_CONTEXT.</p>
+</section>
+
+<!-- TUI RUN -->
+<section class="sec" id="tui-run">
+  <div class="kk">TUI · Uso</div>
+  <h2>Cómo ejecutar la TUI</h2>
+
+  <h3>Después de install-tui (comando global)</h3>
+  <pre><code>memory-tui
+memory-tui --project=ecommerce-frontend
+memory-tui --url=http://localhost:3100/mcp
+memory-tui --url=http://10.0.0.5:3100/mcp --project=mi-proyecto</code></pre>
+
+  <h3>Desde el repo clonado (desarrollo)</h3>
+  <pre><code># Directamente con tsx — sin compilar
+npx tsx packages/tui/src/index.tsx
+
+# Con flags
+npx tsx packages/tui/src/index.tsx --url=http://localhost:3100/mcp --project=mi-proyecto
+
+# Script npm del root
+npm run tui</code></pre>
+
+  <h3>Apuntar al servidor local</h3>
+  <pre><code># El servidor debe estar en modo HTTP
+# .env del servidor:
+MCP_TRANSPORT=http
+MCP_PORT=3100
+
+# Levantar el servidor
+npm run dev --prefix packages/server
+# → [team-memory] Streamable HTTP en http://localhost:3100/mcp
+
+# Lanzar la TUI
+memory-tui --url=http://localhost:3100/mcp</code></pre>
+
+  <div class="ca ca-i"><div>ℹ️</div><div>La TUI verifica <code>/health</code> antes de arrancar. Si el servidor no responde, muestra un error claro en lugar de colgarse.</div></div>
+</section>
+
+<!-- TOOLS -->
+<section class="sec" id="tools">
+  <div class="kk">Interfaz MCP</div>
+  <h2>Las 7 herramientas</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:12px">
+    <div class="card"><h4><code>save_memory</code></h4><p>Persiste + deduplicación automática (exact title + near-duplicate RRF). Soporta <code>force: true</code>. SUMMARY y TASK_CONTEXT exentos del check.</p></div>
+    <div class="card"><h4><code>update_memory</code></h4><p><code>append_content</code> suma al final sin destruir. <code>add_tags</code> suma sin reemplazar. Regenera embedding solo si cambia el contenido. No funciona sobre <code>archived</code>.</p></div>
+    <div class="card"><h4><code>search_memory</code></h4><p>Búsqueda híbrida vectorial + FTS con RRF. SUMMARY excluido por defecto. Registra cada acceso en background sin latencia.</p></div>
+    <div class="card"><h4><code>get_context</code></h4><p>Contexto al inicio de sesión. SUMMARY y TASK_CONTEXT primero (<code>priority_entries</code>), resto en <code>entries</code>.</p></div>
+    <div class="card"><h4><code>list_projects</code></h4><p>Lista proyectos activos. Con <code>include_stats: true</code> devuelve breakdown por área, tipo y status.</p></div>
+    <div class="card"><h4><code>get_memory_stats</code></h4><p>Health completo: overview, top accessed, timeline, autores, candidatos a compactación, riesgo de duplicados. Filtro <code>author</code> y <code>user_id</code> reservado para auth futura.</p></div>
+    <div class="card"><h4><code>compact_memory</code></h4><p>Compacta entradas antiguas + poco accedidas en SUMMARYs con Ollama. <code>dry_run: true</code> por defecto. SUMMARY y TASK_CONTEXT nunca se compactan.</p></div>
+  </div>
+</section>
+
+<!-- DEDUP -->
+<section class="sec" id="dedup">
+  <div class="kk">Calidad del conocimiento</div>
+  <h2>Deduplicación automática en el servidor</h2>
+  <div class="g2">
+    <div class="card"><h4>Paso A — Exact title match</h4><p>Normaliza el título (lowercase, trim, colapso de espacios). Sin costo de embedding. Score 1.0. Compara dentro del mismo <code>project + area + type</code>.</p></div>
+    <div class="card"><h4>Paso B — Near-duplicate (RRF ≥ 0.030)</h4><p>Genera embedding, corre vectorial + FTS, combina con RRF. Umbral conservador. Mismo <code>project + area + type</code>.</p></div>
+  </div>
+  <pre style="margin-top:14px"><code>{
+  "saved": false,
+  "duplicate_detected": true,
+  "duplicate": { "id": "uuid", "title": "...", "content_preview": "...", "score": 1.0 },
+  "suggestion": "Use update_memory with this entry_id..."
+}</code></pre>
+  <div class="ca ca-t"><div>✅</div><div>El agente evalúa <code>content_preview</code> con contexto conversacional. Score 1.0 → casi siempre <code>update_memory</code>. Score ~0.030 → evaluar y decidir. <code>force: true</code> para insertar igual.</div></div>
+</section>
+
+<!-- TYPES -->
+<section class="sec" id="types">
+  <div class="kk">Clasificación</div>
+  <h2>Los 9 tipos de entrada</h2>
+  <div class="tw">
+    <table>
+      <tr><th>Tipo</th><th>Cuándo usarlo</th><th>Comportamiento especial</th></tr>
+      <tr><td><span class="badge" style="background:var(--cd);color:var(--coral)">SUMMARY</span></td><td>Resumen de sesión o feature</td><td>Prioridad 1 en get_context. No buscable salvo filtro explícito. No compactable.</td></tr>
+      <tr><td><span class="badge" style="background:var(--pd);color:var(--purple)">TASK_CONTEXT</span></td><td>Trabajo en progreso</td><td>Prioridad 2. Buscable. No compactable.</td></tr>
+      <tr><td><span class="badge" style="background:var(--bd);color:var(--blue)">DECISION</span></td><td>Elección técnica con razonamiento</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--s3);color:var(--muted)">REPOSITORY_NOTE</span></td><td>Estructura del repo, catálogo</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--td);color:var(--teal)">PATTERN</span></td><td>Solución probada y reutilizable</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--cd);color:var(--coral)">ANTI_PATTERN</span></td><td>Qué no hacer y por qué</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--ad);color:var(--amber)">INSIGHT</span></td><td>Aprendizaje no obvio</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--gd);color:var(--green)">FIX</span></td><td>Solución aplicada</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--s3);color:var(--muted)">BUG</span></td><td>Problema documentado</td><td>—</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- AGENT FLOW -->
+<section class="sec" id="agent-flow">
+  <div class="kk">Comportamiento en sesión</div>
+  <h2>Flujo completo del agente</h2>
+  <div class="steps">
+    <div class="step"><div class="snum">1</div><div><h4>Resolver project_slug</h4><p>Buscar <code>.team-memory.json</code> subiendo hasta <code>.git</code>. Si no tiene slug → flujo interactivo → escribir archivo → recordar commitear.</p></div></div>
+    <div class="step"><div class="snum">2</div><div><h4>Bootstrap — get_context</h4><p>Antes de la primera respuesta sustancial. SUMMARY y TASK_CONTEXT llegan primero. Complementar con <code>search_memory</code> según la tarea.</p></div></div>
+    <div class="step"><div class="snum">3</div><div><h4>Resolver area para cada operación</h4><p>Cascada: area_map → default_area → heurística → preguntar. Informar la fuente al persistir.</p></div></div>
+    <div class="step"><div class="snum">4</div><div><h4>Buscar antes de asumir</h4><p><code>search_memory</code> antes de responder preguntas técnicas. Si hay ANTI_PATTERN relevante, advertir proactivamente.</p></div></div>
+    <div class="step"><div class="snum">5</div><div><h4>save_memory → manejar duplicate_detected</h4><p>El servidor verifica automáticamente. Si devuelve <code>duplicate_detected: true</code> → evaluar <code>content_preview</code> → update o force.</p></div></div>
+    <div class="step"><div class="snum">6</div><div><h4>Consolidar al cerrar la sesión</h4><p>Persistir decisiones, fixes, convenciones. SUMMARY si la sesión fue significativa. TASK_CONTEXT para lo que quedó pendiente.</p></div></div>
+  </div>
+</section>
+
+<!-- PATCHES -->
+<section class="sec" id="patches">
+  <div class="kk">Historial</div>
+  <h2>Releases y patches</h2>
+  <div class="ph">
+    <div class="ph-item"><div class="ph-v" style="background:var(--s3);color:var(--muted)">V2</div><div><div class="ph-title">Base release</div><div class="ph-desc">Servidor MCP con 7 tools, PostgreSQL + pgvector + Ollama, Streamable HTTP, instalador para 4 herramientas, agentes Claude Code y Copilot migrados, scripts de testing.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--s3);color:var(--muted)">V3.1</div><div><div class="ph-title">Advertencia --transport=stdio</div><div class="ph-desc">Nuevo flag <code>--transport</code> (http | stdio). Advertencia interactiva cuando se usa stdio — expone credenciales y es solo para admins. <code>install.mjs</code> + <code>cli.mjs</code>.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--pd);color:var(--purple)">V3.2</div><div><div class="ph-title">project_slug via .team-memory.json</div><div class="ph-desc">Flujo obligatorio al iniciar: buscar <code>.team-memory.json</code>, tres casos A/B/C, flujo interactivo con candidatos detectados, commitear para el equipo. 6 archivos de protocolo.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--td);color:var(--teal)">V3.3</div><div><div class="ph-title">area via cascada A+C</div><div class="ph-desc">Cascada de 4 niveles: area_map → default_area → heurística → preguntar. Cross-area con <code>general</code> + tags. El agente informa fuente al persistir. 6 archivos.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--bd);color:var(--blue)">V3.4</div><div><div class="ph-title">Soporte OpenCode</div><div class="ph-desc">Detección por <code>~/.config/opencode/</code>. Config bajo clave <code>mcp</code> (no <code>mcpServers</code>). Instrucciones via <code>instructions[]</code> referenciando un archivo separado. <code>install.mjs</code> + <code>cli.mjs</code>.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--gd);color:var(--green)">V4</div><div><div class="ph-title">Full release — Terminal UI Phase 1</div><div class="ph-desc">14 archivos nuevos en <code>packages/tui/</code>. TypeScript + Ink 5, comunicación HTTP al servidor MCP, 5 pantallas (Dashboard, EntryList, Search, EntryDetail, Compact). Todos los patches V3.x incluidos.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--gd);color:var(--green)">V4.1</div><div><div class="ph-title">Fix: subcomando install-tui en cli.mjs</div><div class="ph-desc">V4 incluía la TUI pero <code>cli.mjs</code> no tenía el router <code>install-tui</code> ni la función <code>installTui()</code>. Este patch corrige <code>cli.mjs</code>, <code>package.json</code> root e incluye <code>packages/tui/</code> completo.</div></div></div>
+  </div>
+</section>
+
+<!-- STACK -->
+<section class="sec" id="stack">
+  <div class="kk">Tecnología</div>
+  <h2>Stack técnico</h2>
+  <div class="tw">
+    <table>
+      <tr><th>Capa</th><th>Tecnología</th><th>Razón</th></tr>
+      <tr><td><span class="badge" style="background:var(--pd);color:var(--purple)">MCP</span></td><td>@modelcontextprotocol/sdk 1.10.2</td><td>SDK oficial. Streamable HTTP desde esta versión.</td></tr>
+      <tr><td><span class="badge" style="background:var(--td);color:var(--teal)">Runtime</span></td><td>Node.js 22 + TypeScript</td><td>Stack del equipo. NodeNext module resolution en la TUI.</td></tr>
+      <tr><td><span class="badge" style="background:var(--bd);color:var(--blue)">DB</span></td><td>PostgreSQL 16 + pgvector</td><td>Relacional + vectorial en un motor. Sin vector DB separado.</td></tr>
+      <tr><td><span class="badge" style="background:var(--ad);color:var(--amber)">Embeddings</span></td><td>Ollama + nomic-embed-text</td><td>Local, sin API keys, 768 dimensiones.</td></tr>
+      <tr><td><span class="badge" style="background:var(--s3);color:var(--muted)">Generación</span></td><td>Ollama + llama3</td><td>SUMMARYs en compactación. Temperatura 0.2.</td></tr>
+      <tr><td><span class="badge" style="background:var(--s3);color:var(--muted)">Transporte</span></td><td>stdio + Streamable HTTP</td><td>stdio para admins, HTTP para el equipo y la TUI.</td></tr>
+      <tr><td><span class="badge" style="background:var(--gd);color:var(--green)">Infra</span></td><td>Docker Compose</td><td>Un comando en local y en producción.</td></tr>
+      <tr><td><span class="badge" style="background:var(--s3);color:var(--muted)">Installer</span></td><td>Node.js puro (packages/installer)</td><td>Cero dependencias. Workspace separado del servidor.</td></tr>
+      <tr><td><span class="badge" style="background:var(--pkd);color:var(--pink)">TUI</span></td><td>Ink 5 + tsx</td><td>React para terminal. tsx como runtime sin paso de compilación.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- EVALUATION -->
+<section class="sec" id="eval">
+  <div class="kk">Evaluación</div>
+  <h2>Puntos fuertes y a mejorar</h2>
+  <div class="g2">
+    <div>
+      <h3 style="color:var(--green);font-size:15px;margin-bottom:12px">✓ Puntos fuertes</h3>
+      <ul class="cl ch">
+        <li>On-premise — embeddings y generación 100% locales</li>
+        <li>project_slug explícito y commiteado por repo</li>
+        <li>area_map sistemático — sin inferencias implícitas</li>
+        <li>Deduplicación automática en el servidor</li>
+        <li>Instalación global sin fricción — un comando</li>
+        <li>5 herramientas de IA soportadas (inc. OpenCode)</li>
+        <li>Credenciales nunca expuestas en modo HTTP</li>
+        <li>TUI para gestión sin pasar por el agente</li>
+        <li>Ciclo de vida completo: tracking + compactación</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="color:var(--amber);font-size:15px;margin-bottom:12px">⚠ A mejorar / explorar</h3>
+      <ul class="cl wa">
+        <li>Sin autenticación granular (user_id reservado)</li>
+        <li>Sin <code>delete_memory</code> (requiere Fase 2 con API Key)</li>
+        <li>Cursor requiere paso manual (User Rules)</li>
+        <li>Sin versionado de ediciones en update_memory</li>
+        <li>TUI: sin selector interactivo de proyecto al arrancar</li>
+        <li>Dedup solo dentro de project + area + type</li>
+        <li>Distribución TUI manual (sin Bun compile todavía)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section class="sec" id="roadmap">
+  <div class="kk">Próximos pasos</div>
+  <h2>Roadmap</h2>
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--coral);margin-bottom:12px">TUI Phase 2</div>
+    <div class="ph">
+      <div class="ri"><div class="rt" style="background:var(--cd);color:var(--coral)">API KEY</div><div><h4>Autenticación liviana con API Key</h4><p>Campo <code>ADMIN_API_KEY</code> en el <code>.env</code>. Middleware en el servidor. La TUI en modo admin pide la key al iniciar.</p></div></div>
+      <div class="ri"><div class="rt" style="background:var(--cd);color:var(--coral)">DELETE</div><div><h4>Tool delete_memory protegida</h4><p>Solo disponible con la API Key de admin. Nunca expuesta a agentes de IA.</p></div></div>
+      <div class="ri"><div class="rt" style="background:var(--cd);color:var(--coral)">BUN</div><div><h4>Binario standalone con Bun compile</h4><p>Un ejecutable nativo sin Node.js ni dependencias. Distribución via GitHub Releases.</p></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:12px">Mediano plazo</div>
+    <div class="ph">
+      <div class="ri"><div class="rt" style="background:var(--pd);color:var(--purple)">AUTH</div><div><h4>Autenticación real por usuario</h4><p>Tokens por dev con roles reader/writer/admin. Puebla <code>user_id</code> ya reservado en DB.</p></div></div>
+      <div class="ri"><div class="rt" style="background:var(--pd);color:var(--purple)">VERSION</div><div><h4>Historial de ediciones</h4><p>Tabla que registra cada <code>update_memory</code>. Auditable y reversible. Tiene más sentido junto a la TUI.</p></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:12px">Largo plazo</div>
+    <div class="ph">
+      <div class="ri"><div class="rt" style="background:var(--s3);color:var(--muted)">WEB</div><div><h4>Dashboard web</h4><p>Vista para tech leads — métricas, gestión de proyectos, TASK_CONTEXT pendientes.</p></div></div>
+      <div class="ri"><div class="rt" style="background:var(--s3);color:var(--muted)">MULTI</div><div><h4>Multi-tenant</h4><p>Aislar conocimiento por organización si el servidor llega a servir múltiples equipos.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="fl">team-memory v4.0 · 7 tools · Node.js 22 · PostgreSQL 16 + pgvector · Ollama · Ink 5 · Streamable HTTP</div>
+  <div class="fr">
+    <span class="badge" style="background:var(--gd);color:var(--green)">7 tools</span>
+    <span class="badge" style="background:var(--pd);color:var(--purple)">9 tipos</span>
+    <span class="badge" style="background:var(--td);color:var(--teal)">on-premise</span>
+    <span class="badge" style="background:var(--bd);color:var(--blue)">5 clientes IA</span>
+    <span class="badge" style="background:var(--pkd);color:var(--pink)">TUI Phase 1</span>
+  </div>
+</footer>
+</main>
+</div>
+
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');let nd=[];
+function rs(){cv.width=cv.offsetWidth;cv.height=cv.offsetHeight}
+function ni(){nd=[];const n=Math.floor(cv.width*cv.height/14000);for(let i=0;i<n;i++)nd.push({x:Math.random()*cv.width,y:Math.random()*cv.height,vx:(Math.random()-.5)*.28,vy:(Math.random()-.5)*.28,r:Math.random()*1.8+1,p:Math.random()*Math.PI*2})}
+function dr(){ctx.clearRect(0,0,cv.width,cv.height);const D=95;for(let i=0;i<nd.length;i++){const a=nd[i];a.x+=a.vx;a.y+=a.vy;a.p+=.02;if(a.x<0||a.x>cv.width)a.vx*=-1;if(a.y<0||a.y>cv.height)a.vy*=-1;for(let j=i+1;j<nd.length;j++){const b=nd[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.sqrt(dx*dx+dy*dy);if(d<D){ctx.beginPath();ctx.strokeStyle=`rgba(155,138,251,${(1-d/D)*.12})`;ctx.lineWidth=.5;ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}}const op=.28+(Math.sin(a.p)+1)/2*.38;ctx.beginPath();ctx.arc(a.x,a.y,a.r,0,Math.PI*2);ctx.fillStyle=`rgba(155,138,251,${op})`;ctx.fill()}requestAnimationFrame(dr)}
+rs();ni();dr();window.addEventListener('resize',()=>{rs();ni()});
+const ss=document.querySelectorAll('section[id],.hero'),ll=document.querySelectorAll('.nl');
+ss.forEach(s=>new IntersectionObserver(ee=>{ee.forEach(e=>{if(e.isIntersecting){ll.forEach(l=>l.classList.remove('on'));const a=document.querySelector(`.nl[href="#${e.target.id}"]`);if(a)a.classList.add('on')}})},{threshold:.2}).observe(s));
+</script>
+</body>
+</html>
