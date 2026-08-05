@@ -1,4 +1,31 @@
+# ── Dependencias ──────────────────────────────────────────────────────────────
 node_modules/
+
+# ── Compilados ────────────────────────────────────────────────────────────────
 dist/
+packages/*/dist/
+
+# ── Variables de entorno — NUNCA commitear ────────────────────────────────────
 .env
+.env.local
+.env.prod
+
+# ── Backups generados por el instalador ───────────────────────────────────────
+# El comando install crea .bak-<timestamp> antes de modificar archivos del dev
+*.bak-*
+
+# ── Tarballs de release ───────────────────────────────────────────────────────
 *.tar.gz
+*.tar
+
+# ── OS / editores ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/settings.json
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*

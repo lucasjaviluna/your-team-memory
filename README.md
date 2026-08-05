@@ -1,252 +1,257 @@
-# team-memory — MCP Server
+# team-memory
 
 Sistema de memoria persistente y compartida para equipos de desarrollo que trabajan con IA.
+Captura el conocimiento generado en sesiones de IA — decisiones, bugs resueltos, convenciones,
+anti-patrones — y lo hace disponible para cualquier dev en cualquier sesión futura.
 
 ## Stack
 
-- **MCP Server**: TypeScript + `@modelcontextprotocol/sdk`
-- **Base de datos**: PostgreSQL 16 + pgvector
-- **Embeddings / Generación**: Ollama local (`nomic-embed-text` + `llama3`)
-- **Transporte**: `stdio` para local · `Streamable HTTP` para red interna / VPN
+- **MCP Server:** Node.js 22 + TypeScript + `@modelcontextprotocol/sdk`
+- **Base de datos:** PostgreSQL 16 + pgvector (vectorial + FTS con RRF)
+- **Embeddings / Generación:** Ollama local (`nomic-embed-text` + `llama3`)
+- **Transporte:** `stdio` (local/admin) · `Streamable HTTP /mcp` (producción/equipo)
+- **TUI:** Ink 5 + React + tsx
 
 ---
 
-## Modos de uso
+## Onboarding de un dev del equipo
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  LOCAL (desarrollo)            PRODUCCIÓN (red interna/VPN) │
-│                                                             │
-│  MCP_TRANSPORT=           MCP_TRANSPORT=http            │
-│  Docker en tu máquina          Servidor compartido del equipo│
-│  Conexión: command+args        Conexión: URL                │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Setup local (desarrollo)
-
-### 1. Instalar dependencias del servidor
-
-El servidor tiene su propio `package.json` independiente. El `npm install` del root **no** instala las dependencias del servidor — esto es intencional para que `npx` sea rápido.
+El servidor ya está corriendo en el servidor del equipo (ver Setup de producción más abajo).
+Cada dev solo necesita correr **un comando** para tener team-memory disponible en todas
+sus herramientas de IA:
 
 ```bash
-# Solo las deps del servidor (una vez al clonar)
-npm run server:install
-
-# O directamente
-npm install --prefix packages/server
+npx github:tu-org/team-memory install
 ```
 
-### 2. Levantar infraestructura
+Esto detecta automáticamente las herramientas instaladas (Claude Code, VS Code + Copilot,
+Copilot CLI, Cursor, OpenCode) y registra el MCP en todas ellas globalmente — sin configurar
+nada por proyecto, sin clonar el repo.
+
+La URL del servidor se toma de `packages/installer/team-memory.config.json`. Si necesitás
+apuntar a otro servidor:
 
 ```bash
-cp .env.local .env
-docker compose up -d
-docker exec team-memory-ollama ollama pull nomic-embed-text
-docker exec team-memory-ollama ollama pull llama3
+# Override explícito
+npx github:tu-org/team-memory install --url http://IP:3100/mcp
+
+# O variable de entorno
+TEAM_MEMORY_URL=http://IP:3100/mcp npx github:tu-org/team-memory install
 ```
 
-### 3. Compilar y correr
+### Configurar un repo para usar team-memory
 
-```bash
-npm run build
-npm run dev
-```
-
-### 3. Configurar Claude Code
-
-`~/.claude/claude_desktop_config.json` (Mac/Linux):
+Agregar `.team-memory.json` en el root del repo y commitearlo:
 
 ```json
+// Repo de una sola capa
 {
-  "mcpServers": {
-    "team-memory": {
-      "command": "node",
-      "args": ["/ruta/a/team-memory/packages/server/dist/index.js"],
-      "env": {
-        "DB_HOST": "",
-        "DB_PORT": "",
-        "DB_USER": "",
-        "DB_PASSWORD": "",
-        "DB_NAME": "",
-        "OLLAMA_URL": "",
-        "OLLAMA_EMBED_MODEL": "",
-        "OLLAMA_CHAT_MODEL": "",
-        "MCP_TRANSPORT": ""
-      }
-    }
+  "project_slug": "nombre-del-proyecto",
+  "default_area": "frontend"
+}
+
+// Repo fullstack
+{
+  "project_slug": "nombre-del-proyecto",
+  "default_area": "general",
+  "area_map": {
+    "src/frontend/": "frontend",
+    "src/backend/":  "backend",
+    "docker/":       "infra",
+    ".github/":      "infra"
   }
 }
 ```
 
-`%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+El agente de IA lo detecta automáticamente al iniciar cada sesión.
 
-```json
-{
-  "mcpServers": {
-    "team-memory": {
-      "command": "node",
-      "args": ["C:\\ruta\\a\\team-memory\\packages\\server\\dist\\index.js"],
-      "env": {
-        "DB_HOST": "",
-        "DB_PORT": "",
-        "DB_USER": "",
-        "DB_PASSWORD": "",
-        "DB_NAME": "",
-        "OLLAMA_URL": "",
-        "OLLAMA_EMBED_MODEL": "",
-        "OLLAMA_CHAT_MODEL": "",
-        "MCP_TRANSPORT": ""
-      }
-    }
-  }
-}
+---
+
+## TUI — Terminal UI
+
+Interfaz de terminal para gestionar la memoria sin pasar por un agente de IA.
+
+### Instalación
+
+```bash
+# Requiere tener el repo clonado
+npm run install-tui
+# → instala deps, compila y crea ~/.local/bin/memory-tui
 ```
+
+### Uso
+
+```bash
+# Desde cualquier repo con .team-memory.json
+memory-tui
+
+# Con flags explícitos
+memory-tui --url=http://localhost:3100/mcp
+memory-tui --project=mi-proyecto
+
+# Desde el repo (desarrollo)
+npm run tui
+npm run tui -- --url=http://localhost:3100/mcp
+```
+
+### Pantallas disponibles
+
+| Tecla | Pantalla | Funcionalidad |
+|---|---|---|
+| inicio | Dashboard | Stats del proyecto, top accedidas, health |
+| `l` | Entradas | Lista scrollable con filtros por área y tipo |
+| `s` | Búsqueda | Búsqueda semántica live con preview |
+| `Enter` | Detalle | Contenido completo + edición (append, tags, status) |
+| `c` | Compactar | Dry-run preview + confirmación interactiva |
+| `q` | — | Salir |
+
+---
+
+## Scripts de la raíz
+
+| Comando | Descripción |
+|---|---|
+| `npm run server:install` | Instala dependencias del servidor (`packages/server`) |
+| `npm run build` | Compila el servidor TypeScript |
+| `npm run dev` | Levanta el servidor en modo desarrollo |
+| `npm run install-tui` | Instala `memory-tui` globalmente |
+| `npm run tui` | Ejecuta la TUI directamente desde el repo |
+| `npm run db:migrate` | Aplica migración 001 (schema inicial) |
+| `npm run db:migrate:002` | Aplica migración 002 (user tracking) |
+
+---
+
+## MCP Tools
+
+| Tool | Descripción |
+|---|---|
+| `save_memory` | Persiste entrada nueva con deduplicación automática |
+| `update_memory` | Extiende o corrige entrada existente |
+| `search_memory` | Búsqueda híbrida semántica + FTS con RRF |
+| `get_context` | Carga contexto completo al inicio de sesión |
+| `list_projects` | Lista proyectos con stats opcionales |
+| `get_memory_stats` | Health, accesos, autores, candidatos a compactación |
+| `compact_memory` | Compacta entradas antiguas en SUMMARYs (dry_run por defecto) |
+
+**Tipos de entrada:** `SUMMARY` · `TASK_CONTEXT` · `DECISION` · `REPOSITORY_NOTE` · `PATTERN` · `ANTI_PATTERN` · `INSIGHT` · `FIX` · `BUG`
+
+**Áreas:** `frontend` · `backend` · `infra` · `general`
 
 ---
 
 ## Setup de producción (servidor compartido)
 
-### Instalación inicial en el servidor (una sola vez)
+### 1. Instalación inicial en el servidor
 
 ```bash
 bash setup-server.sh
 ```
 
-El script instala Docker, clona el repo, genera las credenciales de DB,
-levanta todos los servicios y descarga los modelos de Ollama.
+Instala Docker, levanta PostgreSQL + Ollama, aplica migraciones y descarga
+los modelos. Al finalizar muestra la URL del servidor.
 
-Al finalizar muestra la IP y la URL del servidor.
-
-### Configuración de cada dev (producción)
-
-Una vez que el servidor está levantado, cada dev solo necesita agregar
-esto en su `claude_desktop_config.json` — reemplazando la IP por la del servidor:
-
-```json
-{
-  "mcpServers": {
-    "team-memory": {
-      "url": "http://192.168.1.100:3100/mcp"
-    }
-  }
-}
-```
-
-Sin tokens, sin contraseñas — la VPN o red interna ya restringe el acceso.
-
-### Comandos del servidor
+### 2. Aplicar migraciones
 
 ```bash
-# Ver estado de todos los servicios
+npm run db:migrate
+npm run db:migrate:002
+```
+
+### 3. Comandos del servidor
+
+```bash
+# Estado de los servicios
 docker compose -f docker-compose.prod.yml ps
 
-# Ver logs del MCP server
+# Logs del MCP server
 docker compose -f docker-compose.prod.yml logs -f mcp-server
-
-# Reiniciar solo el MCP server (sin bajar la DB)
-docker compose -f docker-compose.prod.yml restart mcp-server
 
 # Health check
 curl http://localhost:3100/health
 
-# Actualizar a la última versión manualmente
+# Actualizar a la última versión
 git pull origin main
 docker compose -f docker-compose.prod.yml up -d --build mcp-server
 ```
 
 ---
 
-## Deploy automático (GitHub Actions)
-
-### Secrets requeridos en GitHub
-
-| Secret           | Descripción                       |
-| ---------------- | --------------------------------- |
-| `SERVER_HOST`    | IP del servidor en la red interna |
-| `SERVER_USER`    | Usuario SSH                       |
-| `SERVER_SSH_KEY` | Clave privada SSH                 |
-
-### Generar clave SSH para GitHub Actions
+## Setup local (desarrollo del servidor)
 
 ```bash
-# En tu máquina local
-ssh-keygen -t ed25519 -C "github-actions@team-memory" -f ~/.ssh/tm-deploy -N ""
+# 1. Instalar deps del servidor
+npm run server:install
 
-# Copiar clave pública al servidor
-ssh-copy-id -i ~/.ssh/tm-deploy.pub usuario@IP-SERVIDOR
+# 2. Configurar entorno
+cp .env.local .env
 
-# Copiar clave privada como secret en GitHub
-cat ~/.ssh/tm-deploy   # → pegar en SERVER_SSH_KEY
+# 3. Levantar infra
+docker compose up -d
+docker exec team-memory-ollama ollama pull nomic-embed-text
+docker exec team-memory-ollama ollama pull llama3
+
+# 4. Compilar y correr
+npm run build
+npm run dev
+# → Streamable HTTP disponible en http://localhost:3100/mcp
 ```
 
-El workflow de CI corre en cada PR (TypeScript check + build + migración).
-El workflow de deploy corre automáticamente al mergear a `main`.
+El servidor en modo local usa `MCP_TRANSPORT=http` para que la TUI pueda conectarse.
+Para modo `stdio` (subproceso del cliente IA), ver `.env.local`.
 
 ---
 
 ## Scripts de testing
 
 ```bash
-# Generar 900 entradas de prueba (100 por tipo)
-node --env-file=.env scripts/seed.mjs --quick
+# Generar datos de prueba (900 entradas, 6 autores, dedup test entries)
+node --env-file=.env scripts/seed.mjs --quick --clean
 
-# Test completo del sistema
+# Test completo de las 7 tools
 node --env-file=.env scripts/test-system.mjs
 
-# Test con compactación real
+# Con compactación real
 node --env-file=.env scripts/test-system.mjs --compact
 
-# Agente de IA interactuando con el sistema
+# Tests específicos
+node --env-file=.env scripts/test-system.mjs --only=4,5,6
+
+# Demo con agente de IA real (requiere ANTHROPIC_API_KEY)
 node --env-file=.env scripts/agent-demo.mjs
 ```
 
-Ver `scripts/README.md` para más detalles.
+Ver `scripts/README.md` para el detalle completo.
 
 ---
 
-## Instalador universal (cualquier herramienta de IA)
+## Deploy automático (GitHub Actions)
 
-Para que cada dev tenga team-memory disponible automáticamente en **cualquier sesión de IA** (Claude Code, Copilot CLI, VS Code, Cursor) sin configurar nada por proyecto, ni clonar el repo manualmente:
+### Secrets requeridos
 
-```bash
-npx github:tu-org/team-memory install
-```
-
-La URL del servidor se toma de `scripts/install/team-memory.config.json` (editar `defaultUrl` con la IP real una sola vez al configurar el repo de la empresa). Solo hace falta pasar `--url` si se quiere apuntar a otro servidor distinto del default (ej. staging):
-
-```bash
-npx github:tu-org/team-memory install --url http://staging-ip:3100/mcp
-```
-
-Detecta qué herramientas tiene instaladas, registra el MCP globalmente en cada una, e instala el protocolo de uso (cuándo buscar, cuándo persistir, cómo clasificar). Es idempotente, hace backup antes de tocar archivos existentes, y soporta `--dry-run` y el subcomando `uninstall`:
+| Secret | Descripción |
+|---|---|
+| `SERVER_HOST` | IP del servidor en la red interna |
+| `SERVER_USER` | Usuario SSH |
+| `SERVER_SSH_KEY` | Clave privada SSH |
 
 ```bash
-npx github:tu-org/team-memory install --dry-run
-npx github:tu-org/team-memory uninstall
-npx github:tu-org/team-memory help
+# Generar clave SSH para el deploy
+ssh-keygen -t ed25519 -C "github-actions@team-memory" -f ~/.ssh/tm-deploy -N ""
+ssh-copy-id -i ~/.ssh/tm-deploy.pub usuario@IP-SERVIDOR
+# Copiar el contenido de ~/.ssh/tm-deploy como secret SERVER_SSH_KEY en GitHub
 ```
 
-> **Nota:** la primera vez, `npx` instala las dependencias de todo el monorepo (el instalador en sí no usa ninguna) — tarda unos segundos extra. Si se vuelve un problema, está en el roadmap separarlo a un paquete standalone sin dependencias.
+---
 
-Ver `scripts/install/README.md` para el detalle completo de qué modifica en cada herramienta.
+## Historial de versiones
 
-## MCP Tools disponibles
-
-| Tool             | Descripción                                     |
-| ---------------- | ----------------------------------------------- |
-| `save_memory`    | Guarda una nueva entrada con embedding generado |
-| `search_memory`  | Búsqueda híbrida (semántica + keywords) con RRF |
-| `get_context`    | Carga contexto completo al inicio de sesión     |
-| `list_projects`  | Lista proyectos con entradas activas            |
-| `compact_memory` | Compacta entradas antiguas en SUMMARYs          |
-
-## Tipos de entrada
-
-`BUG` · `FIX` · `DECISION` · `INSIGHT` · `PATTERN` · `ANTI_PATTERN` · `REPOSITORY_NOTE` · `TASK_CONTEXT` · `SUMMARY`
-
-## Áreas
-
-`frontend` · `backend` · `infra` · `general`
+| Versión | Cambios principales |
+|---|---|
+| V2 | Base: 7 tools MCP, PostgreSQL + pgvector + Ollama, instalador para 4 herramientas |
+| V3.1 | Advertencia en `--transport=stdio` |
+| V3.2 | `project_slug` via `.team-memory.json` con flujo interactivo |
+| V3.3 | `area` via cascada de 4 niveles con `area_map` |
+| V3.4 | Soporte para OpenCode |
+| V4 | Terminal UI Phase 1 (5 pantallas, Ink 5) |
+| V4.1 | Fix: subcomando `install-tui` en `cli.mjs` |
+| V4.2 | Script `npm run tui` + `.team-memory.json` de ejemplo |
