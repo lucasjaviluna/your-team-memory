@@ -1,0 +1,13 @@
+{
+  "project_slug": "team-memory",
+  "default_area": "general",
+  "area_map": {
+    "packages/server/":    "backend",
+    "packages/tui/":       "frontend",
+    "packages/installer/": "general",
+    "db/":                 "backend",
+    ".github/":            "infra",
+    "docker/":             "infra",
+    "scripts/":            "general"
+  }
+}
