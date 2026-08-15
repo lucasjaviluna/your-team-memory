@@ -3,7 +3,7 @@
  * install.mjs — Instalador universal de team-memory
  *
  * Detecta qué herramientas de IA están instaladas (Claude Code, Copilot CLI,
- * VS Code/Copilot, Cursor) y registra el servidor MCP team-memory de forma
+ * VS Code/Copilot, Cursor, OpenCode) y registra el servidor MCP team-memory de forma
  * GLOBAL en cada una, además de instalar el protocolo de uso (instrucciones
  * siempre-activas + skill detallado) — todo de forma idempotente y segura.
  *
@@ -11,6 +11,8 @@
  *   node install.mjs                                        (usa defaultUrl de config o TEAM_MEMORY_URL)
  *   node install.mjs --url http://IP-SERVIDOR:3100/mcp      (override explícito)
  *   TEAM_MEMORY_URL=http://IP:3100/mcp node install.mjs     (variable de entorno)
+ *   node install.mjs --invite inv-abc123                    (registro con invite token)
+ *   node install.mjs --token sk-writer-abc123               (dispositivo extra / token existente)
  *   node install.mjs --dry-run
  *   node install.mjs --yes
  *   node install.mjs --uninstall
@@ -23,10 +25,8 @@ import {
   existsSync,
   mkdirSync,
   copyFileSync,
-  readdirSync,
-  statSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, hostname, userInfo } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import readline from "node:readline";
@@ -39,14 +39,21 @@ const SERVER_NAME = "team-memory";
 
 const args = process.argv.slice(2);
 function getArg(flag) {
+  // --flag=value
+  const eq = args.find((a) => a.startsWith(`${flag}=`));
+  if (eq) return eq.slice(flag.length + 1);
+  // --flag value
   const i = args.indexOf(flag);
-  return i >= 0 ? args[i + 1] : null;
+  return i >= 0 ? (args[i + 1] ?? null) : null;
 }
+
 const URL_ARG = getArg("--url");
 const DRY_RUN = args.includes("--dry-run");
 const ASSUME_YES = args.includes("--yes");
 const UNINSTALL = args.includes("--uninstall");
 const ONLY = getArg("--only"); // ej: claude,vscode,copilot-cli,cursor,opencode
+const INVITE_TOKEN = getArg("--invite");
+const EXISTING_TOKEN = getArg("--token");
 const TRANSPORT_ARG =
   args.find((a) => a.startsWith("--transport="))?.split("=")[1] ?? "http";
 const IS_STDIO = TRANSPORT_ARG === "stdio";
@@ -58,13 +65,11 @@ if (!["http", "stdio"].includes(TRANSPORT_ARG)) {
   process.exit(1);
 }
 
-// ── Resolución de URL: --url > team-memory.config.json > TEAM_MEMORY_URL > error ────
+// ── Resolución de URL ─────────────────────────────────────────────────────────
 
 function resolveServerUrl() {
-  // 1. Flag explícito — siempre tiene prioridad
   if (URL_ARG) return { url: URL_ARG, source: "--url" };
 
-  // 2. Config del repo (defaultUrl) — URL específica de la organización
   const configPath = join(__dirname, "team-memory.config.json");
   if (existsSync(configPath)) {
     try {
@@ -77,9 +82,6 @@ function resolveServerUrl() {
     }
   }
 
-  // 3. Variable de entorno TEAM_MEMORY_URL
-  //    Útil cuando el instalador se distribuye vía npm (sin config del repo)
-  //    o en scripts de onboarding automatizado (CI, Ansible, Dockerfile)
   if (process.env.TEAM_MEMORY_URL) {
     return { url: process.env.TEAM_MEMORY_URL, source: "TEAM_MEMORY_URL" };
   }
@@ -118,6 +120,20 @@ async function confirm(question) {
   );
   rl.close();
   return /^y(es)?$/i.test(answer.trim());
+}
+
+async function promptLine(question, defaultVal = "") {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  const hint = defaultVal ? ` ${c.gray}[${defaultVal}]${c.reset}` : "";
+  return new Promise((resolve) => {
+    rl.question(`${question}${hint}: `, (answer) => {
+      rl.close();
+      resolve(answer.trim() || defaultVal);
+    });
+  });
 }
 
 // ── Detección de herramientas instaladas ──────────────────────────────────────
@@ -291,34 +307,40 @@ function removeSkillFile(skillDir) {
   if (!existsSync(path)) return { action: "not-found" };
   if (DRY_RUN) return { action: "would-remove (dry-run)" };
   backupFile(path);
-  writeFileSync(path, "", "utf-8"); // dejar vacío en vez de borrar — menos destructivo
+  writeFileSync(path, "");
   return { action: "cleared" };
 }
 
-// ── Registro de MCP server por herramienta ───────────────────────────────────
+// ── Registro de MCP server — con soporte de apiToken ─────────────────────────
 
-function registerClaudeMcp(url) {
+function registerClaudeMcp(url, apiToken = null) {
   try {
     execFileSync("claude", ["mcp", "remove", SERVER_NAME, "-s", "user"], {
       stdio: "ignore",
     });
   } catch {
-    /* no existía, está bien */
+    /* no existía */
   }
+
   if (DRY_RUN)
     return {
-      action: `would run: claude mcp add --transport http --scope user ${SERVER_NAME} ${url}`,
+      action: `would run: claude mcp add --transport http --scope user ${SERVER_NAME} ${url}${apiToken ? " (+ auth header)" : ""}`,
     };
-  execFileSync(
-    "claude",
-    ["mcp", "add", "--transport", "http", "--scope", "user", SERVER_NAME, url],
-    { stdio: "pipe" },
-  );
+
+  const addArgs = ["mcp", "add", "--transport", "http", "--scope", "user"];
+  if (apiToken) addArgs.push("--header", `Authorization: Bearer ${apiToken}`);
+  addArgs.push(SERVER_NAME, url);
+  execFileSync("claude", addArgs, { stdio: "pipe" });
   return { action: "registered" };
 }
 
-function registerVscodeMcp(url) {
-  const payload = JSON.stringify({ name: SERVER_NAME, type: "http", url });
+function registerVscodeMcp(url, apiToken = null) {
+  const payload = JSON.stringify({
+    name: SERVER_NAME,
+    type: "http",
+    url,
+    ...(apiToken ? { headers: { Authorization: `Bearer ${apiToken}` } } : {}),
+  });
   if (DRY_RUN) return { action: `would run: code --add-mcp '${payload}'` };
   const codeCmd = resolveWin32Command("code");
   try {
@@ -328,7 +350,7 @@ function registerVscodeMcp(url) {
     if (e.code === "ENOENT") {
       return {
         action: "failed",
-        error: `No se pudo ejecutar el comando VS Code CLI '${codeCmd}'. Verificá que VS Code esté instalado y que el comando 'code' esté disponible en PATH.`,
+        error: `No se pudo ejecutar '${codeCmd}'. Verificá que VS Code esté instalado y 'code' esté en PATH.`,
       };
     }
     throw e;
@@ -336,7 +358,7 @@ function registerVscodeMcp(url) {
 }
 
 /** Merge directo de JSON para herramientas sin comando CLI de alta (Cursor, Copilot CLI) */
-function mergeJsonMcpConfig(configPath, url) {
+function mergeJsonMcpConfig(configPath, url, apiToken = null) {
   let config = { mcpServers: {} };
   if (existsSync(configPath)) {
     try {
@@ -350,8 +372,12 @@ function mergeJsonMcpConfig(configPath, url) {
     }
   }
 
-  const already = config.mcpServers[SERVER_NAME];
-  config.mcpServers[SERVER_NAME] = { type: "http", url };
+  const already = !!config.mcpServers[SERVER_NAME];
+  config.mcpServers[SERVER_NAME] = {
+    type: "http",
+    url,
+    ...(apiToken ? { headers: { Authorization: `Bearer ${apiToken}` } } : {}),
+  };
 
   if (DRY_RUN)
     return {
@@ -398,19 +424,134 @@ function unregisterFromJsonConfig(configPath) {
   }
 }
 
-// ── Validación de conectividad ────────────────────────────────────────────────
+// ── Validación de conectividad y auth ─────────────────────────────────────────
 
 async function checkServerHealth(mcpUrl) {
   try {
     const healthUrl = mcpUrl.replace(/\/mcp\/?$/, "/health");
     const res = await fetch(healthUrl, { signal: AbortSignal.timeout(4000) });
-    return res.ok;
+    if (!res.ok) return { ok: false, auth: false };
+    const data = await res.json();
+    return { ok: true, auth: data.auth === "enabled" };
   } catch {
-    return false;
+    return { ok: false, auth: false };
   }
 }
 
-// ── Protocolo (contenido) ─────────────────────────────────────────────────────
+// ── Flujo de autenticación ────────────────────────────────────────────────────
+
+async function registerWithInvite(serverUrl, inviteToken) {
+  head("Registro con invite token");
+
+  const suggestedUser = userInfo().username || "";
+  const suggestedDevice = hostname();
+
+  const username = await promptLine(
+    `  ¿Cuál es tu nombre de usuario?`,
+    suggestedUser,
+  );
+  const deviceName = await promptLine(
+    `  Nombre de este dispositivo`,
+    suggestedDevice,
+  );
+  const email = await promptLine(
+    `  Tu email ${c.gray}(opcional, Enter para omitir)${c.reset}`,
+    "",
+  );
+
+  if (!username) {
+    err("El username es requerido.");
+    process.exit(1);
+  }
+
+  try {
+    const authUrl = serverUrl.replace(/\/mcp\/?$/, "/auth/register");
+    const res = await fetch(authUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        invite_token: inviteToken,
+        username,
+        device_name: deviceName,
+        ...(email ? { email } : {}),
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      err(`Error al registrarse: ${data.error ?? res.statusText}`);
+      process.exit(1);
+    }
+
+    ok(
+      `Registrado como ${c.bold}${data.user.username}${c.reset} (rol: ${c.cyan}${data.user.role}${c.reset})`,
+    );
+    return data;
+  } catch (e) {
+    err(`Error de conexión al registrarse: ${e.message}`);
+    process.exit(1);
+  }
+}
+
+async function registerWithToken(serverUrl, existingToken) {
+  try {
+    const meUrl = serverUrl.replace(/\/mcp\/?$/, "/auth/me");
+    const res = await fetch(meUrl, {
+      headers: { Authorization: `Bearer ${existingToken}` },
+    });
+    if (!res.ok) {
+      err("El token proporcionado no es válido o está revocado.");
+      process.exit(1);
+    }
+    const data = await res.json();
+    ok(
+      `Token verificado — usuario: ${c.bold}${data.user.username}${c.reset} (rol: ${c.cyan}${data.user.role}${c.reset})`,
+    );
+    return { token: existingToken, user: data.user };
+  } catch (e) {
+    err(`Error verificando el token: ${e.message}`);
+    process.exit(1);
+  }
+}
+
+function displayTokenBanner(token) {
+  const PAD = 58;
+  const line = (content) => `${c.yellow}║${c.reset}  ${content}`;
+  const blank = `${c.yellow}║${c.reset}${" ".repeat(PAD + 2)}${c.yellow}║${c.reset}`;
+
+  console.log("");
+  console.log(`${c.yellow}╔${"═".repeat(PAD)}╗${c.reset}`);
+  console.log(
+    `${c.yellow}║${c.reset}  ${c.bold}🔑 TU API KEY PERSONAL${c.reset}${" ".repeat(PAD - 22)}${c.yellow}║${c.reset}`,
+  );
+  console.log(blank);
+  console.log(line(`${c.bold}${c.cyan}${token}${c.reset}`));
+  console.log(blank);
+  console.log(
+    line(`${c.yellow}⚠  Guardá este token en un lugar seguro.${c.reset}`),
+  );
+  console.log(
+    line(`${c.gray}   Si cambiás de máquina y no lo tenés,${c.reset}`),
+  );
+  console.log(
+    line(`${c.gray}   necesitarás pedirle uno nuevo al admin.${c.reset}`),
+  );
+  console.log(blank);
+  console.log(
+    line(`${c.gray}Este mensaje no se va a volver a mostrar.${c.reset}`),
+  );
+  console.log(blank);
+  console.log(line(`${c.gray}Para instalar en otro dispositivo:${c.reset}`));
+  console.log(
+    line(
+      `${c.gray}npx github:tu-org/team-memory install --token ${token.slice(0, 24)}...${c.reset}`,
+    ),
+  );
+  console.log(`${c.yellow}╚${"═".repeat(PAD)}╝${c.reset}`);
+  console.log("");
+}
+
+// ── Protocolo ────────────────────────────────────────────────────────────────
 
 const protocolShort = readFileSync(
   join(__dirname, "protocol-short.md"),
@@ -423,10 +564,23 @@ const protocolSkill = readFileSync(
 
 // ── Instaladores por herramienta ──────────────────────────────────────────────
 
-async function installClaude(url) {
+function reportFileResult(label, path, res) {
+  if (res.action === "unchanged") {
+    skip(`${label} → sin cambios (ya estaba actualizado)`);
+  } else {
+    ok(
+      `${label} → ${res.action}${res.backupPath ? ` (backup: ${res.backupPath})` : ""}`,
+    );
+  }
+  for (const w of res.warnings ?? []) {
+    warn(`  Posible tensión detectada en ${path}: ${w}`);
+  }
+}
+
+async function installClaude(url, apiToken = null) {
   head("Claude Code");
 
-  const mcp = registerClaudeMcp(url);
+  const mcp = registerClaudeMcp(url, apiToken);
   ok(`MCP server (scope: user/global) → ${mcp.action}`);
 
   const claudeMdPath = join(HOME, ".claude", "CLAUDE.md");
@@ -444,32 +598,29 @@ async function installClaude(url) {
   ok(`Skill ${SERVER_NAME} → ${skillRes.action}`);
 }
 
-async function installVscode(url) {
+async function installVscode(url, apiToken = null) {
   head("VS Code (GitHub Copilot)");
 
-  const mcp = registerVscodeMcp(url);
+  const mcp = registerVscodeMcp(url, apiToken);
   if (mcp.action === "failed") {
     warn(`VS Code MCP → ${mcp.error}`);
     warn(
-      "Omitiendo configuración de VS Code. Instalá la CLI 'code' o abrí VS Code y registrá el servidor MCP manualmente.",
+      "Omitiendo configuración de VS Code. Registrá el servidor MCP manualmente.",
     );
     return;
   }
   ok(`MCP server (perfil global) → ${mcp.action}`);
 
-  // VS Code Copilot Chat no tiene un archivo global de instrucciones editable
-  // de forma confiable — se usa el skill compartido de Copilot (~/.copilot/skills)
-  // que es portable entre VS Code, Copilot CLI y el coding agent.
   skip(
     "Instrucciones siempre-activas: usa el skill global de Copilot (instalado abajo)",
   );
 }
 
-async function installCopilotCli(url) {
+async function installCopilotCli(url, apiToken = null) {
   head("GitHub Copilot CLI");
 
   const mcpConfigPath = join(HOME, ".copilot", "mcp-config.json");
-  const mcp = mergeJsonMcpConfig(mcpConfigPath, url);
+  const mcp = mergeJsonMcpConfig(mcpConfigPath, url, apiToken);
   ok(`MCP server (~/.copilot/mcp-config.json) → ${mcp.action}`);
 
   const instructionsPath = join(HOME, ".copilot", "copilot-instructions.md");
@@ -485,11 +636,11 @@ async function installCopilotCli(url) {
   );
 }
 
-async function installCursor(url) {
+async function installCursor(url, apiToken = null) {
   head("Cursor");
 
   const mcpConfigPath = join(HOME, ".cursor", "mcp.json");
-  const mcp = mergeJsonMcpConfig(mcpConfigPath, url);
+  const mcp = mergeJsonMcpConfig(mcpConfigPath, url, apiToken);
   ok(`MCP server (~/.cursor/mcp.json, global) → ${mcp.action}`);
 
   warn(
@@ -505,25 +656,9 @@ async function installCursor(url) {
   );
 }
 
-function reportFileResult(label, path, res) {
-  if (res.action === "unchanged") {
-    skip(`${label} → sin cambios (ya estaba actualizado)`);
-  } else {
-    ok(
-      `${label} → ${res.action}${res.backupPath ? ` (backup: ${res.backupPath})` : ""}`,
-    );
-  }
-  for (const w of res.warnings ?? []) {
-    warn(`  Posible tensión detectada en ${path}: ${w}`);
-  }
-}
+// ── OpenCode ──────────────────────────────────────────────────────────────────
 
-// ── OpenCode — config global en ~/.config/opencode/opencode.json ──────────────
-// OpenCode usa un JSON con merge de capas — no hay CLI de registro.
-// MCP remoto: bajo la clave "mcp", no "mcpServers" como otros clientes.
-// Instrucciones: campo "instructions" acepta array de paths — se suma al existente.
-
-function registerOpencodeMcp(url) {
+function registerOpencodeMcp(url, apiToken = null) {
   const configPath = join(HOME, ".config", "opencode", "opencode.json");
 
   let config = {};
@@ -538,7 +673,12 @@ function registerOpencodeMcp(url) {
 
   if (!config.mcp) config.mcp = {};
   const already = !!config.mcp[SERVER_NAME];
-  config.mcp[SERVER_NAME] = { type: "remote", url, enabled: true };
+  config.mcp[SERVER_NAME] = {
+    type: "remote",
+    url,
+    enabled: true,
+    ...(apiToken ? { headers: { Authorization: `Bearer ${apiToken}` } } : {}),
+  };
 
   if (DRY_RUN)
     return {
@@ -569,14 +709,9 @@ function addOpencodeInstructions(protocolPath) {
   const existing = Array.isArray(config.instructions)
     ? config.instructions
     : [];
-
-  // Idempotente: no agregar si ya está en el array
-  if (existing.includes(protocolPath)) {
-    return { action: "unchanged" };
-  }
+  if (existing.includes(protocolPath)) return { action: "unchanged" };
 
   const updated = { ...config, instructions: [...existing, protocolPath] };
-
   if (DRY_RUN)
     return { action: `would add "${protocolPath}" to instructions (dry-run)` };
 
@@ -592,16 +727,13 @@ function addOpencodeInstructions(protocolPath) {
 function removeOpencodeInstructions(protocolPath) {
   const configPath = join(HOME, ".config", "opencode", "opencode.json");
   if (!existsSync(configPath)) return { action: "not-found" };
-
   try {
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
     const existing = Array.isArray(config.instructions)
       ? config.instructions
       : [];
     if (!existing.includes(protocolPath)) return { action: "not-registered" };
-
     if (DRY_RUN) return { action: "would-remove (dry-run)" };
-
     backupFile(configPath);
     config.instructions = existing.filter((p) => p !== protocolPath);
     if (config.instructions.length === 0) delete config.instructions;
@@ -612,17 +744,14 @@ function removeOpencodeInstructions(protocolPath) {
   }
 }
 
-async function installOpenCode(url) {
+async function installOpenCode(url, apiToken = null) {
   head("OpenCode");
 
-  // 1. Registrar MCP en el config global
-  const mcp = registerOpencodeMcp(url);
+  const mcp = registerOpencodeMcp(url, apiToken);
   ok(
     `MCP server (~/.config/opencode/opencode.json, type: remote) → ${mcp.action}`,
   );
 
-  // 2. Escribir el protocolo corto como archivo separado
-  //    (OpenCode referencia archivos de instrucciones por path, no por bloque embebido)
   const protocolDir = join(HOME, ".config", "opencode");
   const protocolPath = join(protocolDir, "team-memory-protocol.md");
 
@@ -635,7 +764,6 @@ async function installOpenCode(url) {
     ok(`Protocolo → ${existed ? "updated" : "created"}: ${protocolPath}`);
   }
 
-  // 3. Agregar referencia al array "instructions" del config
   const instrRes = addOpencodeInstructions(protocolPath);
   ok(`instructions[] → ${instrRes.action}`);
 
@@ -660,8 +788,6 @@ async function uninstallAll(tools) {
   }
 
   if (tools.vscode) {
-    // code --remove-mcp no existe de forma confiable en todas las versiones;
-    // se deja indicado para remoción manual vía MCP: List Servers
     info(
       'VS Code: remové el servidor manualmente con "MCP: List Servers" → Remove (no hay flag CLI estable de remoción)',
     );
@@ -696,7 +822,6 @@ async function uninstallAll(tools) {
       "team-memory-protocol.md",
     );
 
-    // Remover entrada del bloque mcp (no mcpServers)
     let mcpAction = "not-found";
     if (existsSync(configPath)) {
       try {
@@ -762,6 +887,7 @@ async function main() {
 
   console.log(`\nDetectado: ${detected.join(", ")}`);
 
+  // ── Desinstalación ──────────────────────────────────────────────────────────
   if (UNINSTALL) {
     const proceed = await confirm(
       "\n¿Confirmás la desinstalación de team-memory en las herramientas detectadas?",
@@ -775,6 +901,7 @@ async function main() {
     return;
   }
 
+  // ── Advertencia stdio ───────────────────────────────────────────────────────
   if (IS_STDIO) {
     console.log("");
     warn("Estás usando --transport=stdio.");
@@ -797,6 +924,7 @@ async function main() {
     }
   }
 
+  // ── Resolver URL ────────────────────────────────────────────────────────────
   const { url: SERVER_URL, source: urlSource } = resolveServerUrl();
 
   if (!SERVER_URL) {
@@ -805,24 +933,30 @@ async function main() {
       "1. Flag explícito:      npx github:tu-org/team-memory install --url http://IP:3100/mcp",
     );
     info(
-      '2. Config del repo:     editar scripts/install/team-memory.config.json → "defaultUrl"',
+      '2. Config del repo:     editar team-memory.config.json → "defaultUrl"',
     );
     info(
       "3. Variable de entorno: TEAM_MEMORY_URL=http://IP:3100/mcp npx github:tu-org/team-memory install",
     );
     process.exit(1);
   }
-  if (urlSource === "team-memory.config.json") {
+  if (urlSource === "team-memory.config.json")
     info(`Usando URL por defecto del repo (${urlSource}): ${SERVER_URL}`);
-  }
-  if (urlSource === "TEAM_MEMORY_URL") {
+  if (urlSource === "TEAM_MEMORY_URL")
     info(`Usando URL de variable de entorno (TEAM_MEMORY_URL): ${SERVER_URL}`);
-  }
 
+  // ── Health check y detección de auth ───────────────────────────────────────
   head("Verificando conectividad con el servidor");
-  const healthy = await checkServerHealth(SERVER_URL);
+  const { ok: healthy, auth: authEnabled } =
+    await checkServerHealth(SERVER_URL);
+
   if (healthy) {
     ok(`Servidor respondiendo en ${SERVER_URL}`);
+    if (authEnabled) {
+      ok(`Autenticación habilitada en el servidor`);
+    } else {
+      info(`Servidor sin autenticación (AUTH_ENABLED=false)`);
+    }
   } else {
     warn(
       `No se pudo verificar /health en ${SERVER_URL} — ¿estás conectado a la VPN/red interna?`,
@@ -834,6 +968,35 @@ async function main() {
     }
   }
 
+  // ── Flujo de autenticación ──────────────────────────────────────────────────
+  let apiToken = null;
+
+  if (authEnabled) {
+    if (EXISTING_TOKEN) {
+      // Dispositivo extra — el usuario ya tiene un token
+      head("Verificando token existente");
+      const result = await registerWithToken(SERVER_URL, EXISTING_TOKEN);
+      apiToken = result.token;
+    } else if (INVITE_TOKEN) {
+      // Registro nuevo con invite token
+      const result = await registerWithInvite(SERVER_URL, INVITE_TOKEN);
+      apiToken = result.token;
+      displayTokenBanner(result.token);
+    } else {
+      err(
+        "El servidor requiere autenticación. Necesitás un invite o un token.",
+      );
+      info(
+        "Si es tu primera vez:  npx github:tu-org/team-memory install --invite inv-abc123",
+      );
+      info(
+        "Si ya tenés un token:  npx github:tu-org/team-memory install --token sk-writer-abc123",
+      );
+      process.exit(1);
+    }
+  }
+
+  // ── Confirmación e instalación ──────────────────────────────────────────────
   if (!DRY_RUN) {
     const proceed = await confirm(
       `\nSe va a registrar el MCP "${SERVER_NAME}" (${SERVER_URL}) y modificar archivos de configuración global ` +
@@ -845,11 +1008,11 @@ async function main() {
     }
   }
 
-  if (tools.claude) await installClaude(SERVER_URL);
-  if (tools.vscode) await installVscode(SERVER_URL);
-  if (tools.copilotCli) await installCopilotCli(SERVER_URL);
-  if (tools.cursor) await installCursor(SERVER_URL);
-  if (tools.opencode) await installOpenCode(SERVER_URL);
+  if (tools.claude) await installClaude(SERVER_URL, apiToken);
+  if (tools.vscode) await installVscode(SERVER_URL, apiToken);
+  if (tools.copilotCli) await installCopilotCli(SERVER_URL, apiToken);
+  if (tools.cursor) await installCursor(SERVER_URL, apiToken);
+  if (tools.opencode) await installOpenCode(SERVER_URL, apiToken);
 
   console.log(`\n${c.bold}${c.green}✅ Instalación completa${c.reset}`);
   console.log(

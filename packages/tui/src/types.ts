@@ -64,4 +64,4 @@ export interface CompactResult {
 }
 
 export type Screen =
-  | 'dashboard' | 'list' | 'detail' | 'edit' | 'compact' | 'search'
+  | 'dashboard' | 'list' | 'detail' | 'edit' | 'compact' | 'search' | 'admin'

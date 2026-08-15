@@ -8,63 +8,106 @@ import { resolveServerUrl, resolveProjectSlug, parseArgs } from './config.js'
 const c = {
   reset:'\x1b[0m', bold:'\x1b[1m', dim:'\x1b[2m',
   green:'\x1b[32m', red:'\x1b[31m', cyan:'\x1b[36m',
-  gray:'\x1b[90m',  yellow:'\x1b[33m', blue:'\x1b[34m',
+  gray:'\x1b[90m',
 }
 
-function source(s: string): string {
-  return `${c.gray}← ${s}${c.reset}`
+function parseToken(): string | null {
+  const args = process.argv.slice(2)
+  const eq   = args.find((a: string) => a.startsWith('--token='))
+  if (eq) return eq.slice(8)
+  const i = args.indexOf('--token')
+  return i >= 0 ? (args[i + 1] ?? null) : null
+}
+
+async function getAuthToken(serverUrl: string, explicitToken: string | null): Promise<{
+  token:   string | null
+  isAdmin: boolean
+}> {
+  const healthUrl = serverUrl.replace(/\/mcp\/?$/, '/health')
+  try {
+    const res  = await fetch(healthUrl)
+    const data = await res.json() as { auth?: string }
+    if (data.auth !== 'enabled') return { token: null, isAdmin: false }
+  } catch {
+    return { token: null, isAdmin: false }
+  }
+
+  const token = explicitToken ?? process.env.TEAM_MEMORY_TOKEN ?? null
+
+  if (!token) {
+    console.error(`\n${c.red}✗${c.reset} El servidor requiere autenticación.\n`)
+    console.error(`  memory-tui ${c.cyan}--token sk-writer-abc123${c.reset}`)
+    console.error(`  ${c.cyan}TEAM_MEMORY_TOKEN${c.reset}=sk-writer-abc123 memory-tui\n`)
+    process.exit(1)
+  }
+
+  try {
+    const meUrl = serverUrl.replace(/\/mcp\/?$/, '/auth/me')
+    const res   = await fetch(meUrl, { headers: { 'Authorization': `Bearer ${token}` } })
+    if (!res.ok) {
+      console.error(`\n${c.red}✗${c.reset} Token inválido o revocado.\n`)
+      process.exit(1)
+    }
+    const data = await res.json() as { user: { role: string; username: string } }
+    console.log(`  ${c.green}✓${c.reset} Usuario    ${c.bold}${data.user.username}${c.reset}  ${c.gray}(${data.user.role})${c.reset}`)
+    return { token, isAdmin: data.user.role === 'admin' }
+  } catch (e) {
+    console.error(`\n${c.red}✗${c.reset} Error verificando token: ${(e as Error).message}\n`)
+    process.exit(1)
+  }
 }
 
 async function main() {
-  const { url: urlArg, project: projArg } = parseArgs()
+  const args          = parseArgs()
+  const explicitToken = parseToken()
 
-  // ── Cabecera ────────────────────────────────────────────────────────────────
   console.log(`\n${c.bold}${c.cyan}team-memory TUI${c.reset}  ${c.gray}v4${c.reset}\n`)
 
-  // ── Resolver URL ─────────────────────────────────────────────────────────────
-  const urlResolved = resolveServerUrl(urlArg)
-  if (!urlResolved) {
+  // ── URL ───────────────────────────────────────────────────────────────────
+  const serverUrl = resolveServerUrl(args.url)
+  if (!serverUrl) {
     console.error(`${c.red}✗${c.reset} No se encontró la URL del servidor.\n`)
-    console.error(`  ${c.bold}Opciones:${c.reset}`)
-    console.error(`    memory-tui ${c.cyan}--url=http://IP:3100/mcp${c.reset}`)
-    console.error(`    ${c.cyan}TEAM_MEMORY_URL${c.reset}=http://IP:3100/mcp memory-tui`)
-    console.error(`    Configurar ${c.cyan}defaultUrl${c.reset} en team-memory.config.json\n`)
+    console.error(`  memory-tui ${c.cyan}--url=http://IP:3100/mcp${c.reset}`)
+    console.error(`  ${c.cyan}TEAM_MEMORY_URL${c.reset}=http://IP:3100/mcp memory-tui\n`)
     process.exit(1)
   }
-  console.log(`  ${c.green}✓${c.reset} Servidor   ${c.bold}${urlResolved.value}${c.reset}  ${source(urlResolved.source)}`)
+  console.log(`  ${c.green}✓${c.reset} Servidor   ${c.bold}${serverUrl}${c.reset}`)
 
-  // ── Resolver project_slug ────────────────────────────────────────────────────
-  const projectResolved = resolveProjectSlug(projArg)
-  if (!projectResolved) {
+  // ── project_slug ──────────────────────────────────────────────────────────
+  const projectSlug = resolveProjectSlug(args.project)
+  if (!projectSlug) {
     console.error(`\n${c.red}✗${c.reset} No se encontró el project_slug.\n`)
-    console.error(`  ${c.bold}Opciones:${c.reset}`)
-    console.error(`    memory-tui ${c.cyan}--project=nombre-del-proyecto${c.reset}`)
-    console.error(`    Agregar ${c.cyan}.team-memory.json${c.reset} al root del repo con { "project_slug": "..." }\n`)
+    console.error(`  memory-tui ${c.cyan}--project=nombre${c.reset}`)
+    console.error(`  Agregar ${c.cyan}.team-memory.json${c.reset} al root del repo\n`)
     process.exit(1)
   }
-  console.log(`  ${c.green}✓${c.reset} Proyecto   ${c.bold}${projectResolved.value}${c.reset}  ${source(projectResolved.source)}`)
+  console.log(`  ${c.green}✓${c.reset} Proyecto   ${c.bold}${projectSlug}${c.reset}`)
 
-  // ── Health check ─────────────────────────────────────────────────────────────
+  // ── Health check ──────────────────────────────────────────────────────────
   process.stdout.write(`  ${c.dim}  Conectando...${c.reset}`)
-  const healthy = await checkHealth(urlResolved.value)
-  process.stdout.write('\r')   // limpiar la línea de "Conectando..."
+  const healthy = await checkHealth(serverUrl)
+  process.stdout.write('\r')
 
   if (!healthy) {
-    console.error(`  ${c.red}✗${c.reset} El servidor no responde en ${c.bold}${urlResolved.value}${c.reset}\n`)
-    console.error(`    Verificá que el servidor esté corriendo y que estés en la VPN.\n`)
+    console.error(`  ${c.red}✗${c.reset} El servidor no responde en ${c.bold}${serverUrl}${c.reset}\n`)
     process.exit(1)
   }
-  console.log(`  ${c.green}✓${c.reset} Conectado  ${c.gray}${urlResolved.value.replace(/\/mcp\/?$/, '/health')}${c.reset}`)
+  console.log(`  ${c.green}✓${c.reset} Conectado  ${c.gray}${serverUrl.replace(/\/mcp\/?$/, '/health')}${c.reset}`)
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  const { token: apiToken, isAdmin } = await getAuthToken(serverUrl, explicitToken)
+  if (isAdmin) {
+    console.log(`  ${c.green}✓${c.reset} Modo admin ${c.gray}(acceso completo)${c.reset}`)
+  }
   console.log()
 
-  // ── Render ───────────────────────────────────────────────────────────────────
   render(
-    <App url={urlResolved.value} project={projectResolved.value} />,
+    <App url={serverUrl} project={projectSlug} apiToken={apiToken} isAdmin={isAdmin} />,
     { exitOnCtrlC: true }
   )
 }
 
 main().catch(e => {
-  console.error(`\n${c.red}✗${c.reset} Error inesperado: ${(e as Error).message}\n`)
+  console.error(`\n${c.red}✗${c.reset} Error: ${(e as Error).message}\n`)
   process.exit(1)
 })

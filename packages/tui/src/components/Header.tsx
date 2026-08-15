@@ -4,11 +4,11 @@ import type { Screen } from '../types.js'
 
 const LABELS: Record<Screen, string> = {
   dashboard:'Dashboard', list:'Entradas', search:'Búsqueda',
-  detail:'Detalle', edit:'Editar', compact:'Compactación',
+  detail:'Detalle', edit:'Editar', compact:'Compactación', admin:'Admin',
 }
 const COLORS: Record<Screen, string> = {
   dashboard:'cyan', list:'green', search:'yellow',
-  detail:'blue', edit:'magenta', compact:'red',
+  detail:'blue', edit:'magenta', compact:'red', admin:'red',
 }
 interface Props { project: string; screen: Screen; url: string }
 export function Header({ project, screen, url }: Props) {

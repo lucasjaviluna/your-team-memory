@@ -5,9 +5,9 @@ import { LoadingPanel, ErrorPanel } from '../components/Spinner.js'
 import { StatusBar }                from '../components/StatusBar.js'
 import type { MemoryStats, Screen } from '../types.js'
 
-interface Props { url: string; project: string; onNavigate: (s: Screen) => void }
+interface Props { url: string; project: string; onNavigate: (s: Screen) => void; isAdmin?: boolean }
 
-export function Dashboard({ url, project, onNavigate }: Props) {
+export function Dashboard({ url, project, onNavigate, isAdmin = false }: Props) {
   const [stats, setStats]   = React.useState<MemoryStats | null>(null)
   const [error, setError]   = React.useState<string | null>(null)
   const [loading, setLoad]  = React.useState(true)
@@ -23,6 +23,7 @@ export function Dashboard({ url, project, onNavigate }: Props) {
     if (input === 'l') onNavigate('list')
     if (input === 's') onNavigate('search')
     if (input === 'c') onNavigate('compact')
+    if (input === 'a' && isAdmin) onNavigate('admin')
     if (input === 'q') process.exit(0)
   })
 
@@ -80,7 +81,9 @@ export function Dashboard({ url, project, onNavigate }: Props) {
 
       <StatusBar keys={[
         {key:'l', label:'Entradas'}, {key:'s', label:'Buscar'},
-        {key:'c', label:'Compactar'}, {key:'q', label:'Salir'},
+        {key:'c', label:'Compactar'},
+        ...(isAdmin ? [{key:'a', label:'Admin'}] : []),
+        {key:'q', label:'Salir'},
       ]} />
     </Box>
   )
