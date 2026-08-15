@@ -2,7 +2,7 @@
 import React           from 'react'
 import { render }      from 'ink'
 import { App }         from './App.js'
-import { checkHealth } from './client.js'
+import { checkHealth, setAuthToken } from './client.js'
 import { resolveServerUrl, resolveProjectSlug, parseArgs } from './config.js'
 
 const c = {
@@ -100,6 +100,9 @@ async function main() {
     console.log(`  ${c.green}✓${c.reset} Modo admin ${c.gray}(acceso completo)${c.reset}`)
   }
   console.log()
+
+  // Configurar token globalmente en el cliente MCP
+  setAuthToken(apiToken)
 
   render(
     <App url={serverUrl} project={projectSlug} apiToken={apiToken} isAdmin={isAdmin} />,

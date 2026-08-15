@@ -7,16 +7,29 @@ interface RpcResponse {
   error?:  { code: number; message: string }
 }
 
-let _id   = 1
-let _init = false
+let _id    = 1
+let _init  = false
+let _token: string | null = null   // token de autenticación, se setea al iniciar
+
+// ── Configurar token globalmente ──────────────────────────────────────────────
+
+export function setAuthToken(token: string | null): void {
+  _token = token
+  _init  = false   // reiniciar init si cambia el token
+}
+
+// ── HTTP base ─────────────────────────────────────────────────────────────────
 
 async function post(url: string, body: object): Promise<RpcResponse> {
-  const res = await fetch(url, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' },
-    body:    JSON.stringify(body),
-  })
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept':       'application/json, text/event-stream',
+  }
+  if (_token) headers['Authorization'] = `Bearer ${_token}`
+
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
   const ct = res.headers.get('content-type') ?? ''
   if (ct.includes('text/event-stream')) {
     const text = await res.text()
@@ -29,8 +42,10 @@ async function post(url: string, body: object): Promise<RpcResponse> {
 
 async function ensureInit(url: string) {
   if (_init) return
-  await post(url, { jsonrpc: '2.0', id: _id++, method: 'initialize',
-    params: { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'memory-tui', version: '1.0.0' } } })
+  await post(url, {
+    jsonrpc: '2.0', id: _id++, method: 'initialize',
+    params: { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'memory-tui', version: '1.0.0' } },
+  })
   _init = true
 }
 
@@ -45,6 +60,8 @@ async function call<T>(url: string, name: string, args: object = {}): Promise<T>
   return parsed as T
 }
 
+// ── Health check ──────────────────────────────────────────────────────────────
+
 export async function checkHealth(baseUrl: string): Promise<boolean> {
   try {
     const u = baseUrl.replace(/\/mcp\/?$/, '/health')
@@ -52,6 +69,8 @@ export async function checkHealth(baseUrl: string): Promise<boolean> {
     return r.ok
   } catch { return false }
 }
+
+// ── Tools ─────────────────────────────────────────────────────────────────────
 
 export async function apiGetStats(url: string, slug: string): Promise<MemoryStats> {
   const r = await call<{ stats: MemoryStats }>(url, 'get_memory_stats', {
@@ -84,4 +103,10 @@ export async function apiCompactMemory(url: string, args: {
   older_than_days?: number; max_access_count?: number; last_accessed_days?: number
 }): Promise<CompactResult> {
   return call<CompactResult>(url, 'compact_memory', args)
+}
+
+export async function apiDeleteMemory(url: string, args: {
+  entry_id: string; confirm: true
+}): Promise<{ deleted: boolean; entry_id: string; title: string; type: string }> {
+  return call(url, 'delete_memory', args)
 }

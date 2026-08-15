@@ -4,7 +4,9 @@ import SelectInput from "ink-select-input";
 import TextInput from "ink-text-input";
 import { LoadingPanel, ErrorPanel, Spinner } from "../components/Spinner.js";
 import { StatusBar } from "../components/StatusBar.js";
-import type { Screen } from "../types.js";
+import { TypeBadge, AreaBadge } from "../components/Badges.js";
+import { apiSearchMemory, apiDeleteMemory } from "../client.js";
+import type { MemoryEntry, Screen } from "../types.js";
 
 interface User {
   id: string;
@@ -39,8 +41,11 @@ type Mode =
   | "create-invite"
   | "user-detail"
   | "generating-token"
-  | "done";
-
+  | "done"
+  | "delete-search"
+  | "delete-results"
+  | "delete-confirm"
+  | "delete-done";
 // Use a safe, project-local type for fetch options to avoid depending on DOM lib
 type FetchOpts = {
   headers?: Record<string, string>;
@@ -53,7 +58,7 @@ async function authFetch<T>(
   url: string,
   token: string,
   path: string,
-  opts: FetchOpts = {},
+  opts: RequestInit = {},
 ): Promise<T> {
   const res = await fetch(url.replace(/\/mcp\/?$/, path), {
     ...opts,
@@ -73,6 +78,7 @@ const MENU_ITEMS = [
   { label: "👥  Gestionar usuarios", value: "users" },
   { label: "📨  Crear invite token", value: "create-invite" },
   { label: "📋  Ver invites activos", value: "invites" },
+  { label: "🗑️   Eliminar entrada", value: "delete-search" },
 ];
 
 const ROLE_ITEMS = [
@@ -92,6 +98,15 @@ export function Admin({ url, apiToken, onNavigate }: Props) {
   const [inviteResult, setInviteResult] = React.useState<string | null>(null);
   const [generatedToken, setGenToken] = React.useState<string | null>(null);
   const [message, setMsg] = React.useState<string | null>(null);
+
+  // Estado para delete
+  const [deleteQuery, setDeleteQuery] = React.useState("");
+  const [deleteResults, setDeleteResults] = React.useState<MemoryEntry[]>([]);
+  const [deleteCursor, setDeleteCursor] = React.useState(0);
+  const [entryToDelete, setEntryToDelete] = React.useState<MemoryEntry | null>(
+    null,
+  );
+  const [deleteProject, setDeleteProject] = React.useState("");
 
   const load = async (what: "users" | "invites") => {
     setLoading(true);
@@ -169,14 +184,58 @@ export function Admin({ url, apiToken, onNavigate }: Props) {
     }
   };
 
+  const searchForDelete = async (query: string, project: string) => {
+    if (!query.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const results = await apiSearchMemory(url, {
+        query,
+        project_slug: project,
+        limit: 15,
+      });
+      setDeleteResults(results);
+      setDeleteCursor(0);
+      setMode("delete-results");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setLoading(false);
+  };
+
+  const confirmDelete = async (entry: MemoryEntry) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await apiDeleteMemory(url, { entry_id: entry.id, confirm: true });
+      setMode("delete-done");
+      setMsg(`"${entry.title}" eliminada permanentemente.`);
+    } catch (e) {
+      setError((e as Error).message);
+      setMode("delete-confirm");
+    }
+    setLoading(false);
+  };
+
   useInput((input, key) => {
     if (key.escape) {
       if (mode === "menu") onNavigate("dashboard");
+      else if (mode === "delete-results") setMode("delete-search");
+      else if (mode === "delete-confirm") setMode("delete-results");
       else {
         setMode("menu");
         setError(null);
         setMsg(null);
         setSelUser(null);
+      }
+    }
+    if (mode === "delete-results") {
+      if (key.upArrow) setDeleteCursor((c) => Math.max(0, c - 1));
+      if (key.downArrow)
+        setDeleteCursor((c) => Math.min(deleteResults.length - 1, c + 1));
+      if (key.return && deleteResults[deleteCursor]) {
+        setEntryToDelete(deleteResults[deleteCursor]);
+        setMode("delete-confirm");
       }
     }
     if (input === "q") process.exit(0);
@@ -205,6 +264,11 @@ export function Admin({ url, apiToken, onNavigate }: Props) {
             if (item.value === "users") load("users");
             if (item.value === "invites") load("invites");
             if (item.value === "create-invite") setMode("create-invite");
+            if (item.value === "delete-search") {
+              setDeleteQuery("");
+              setDeleteProject("");
+              setMode("delete-search");
+            }
           }}
         />
         <StatusBar
@@ -452,6 +516,184 @@ export function Admin({ url, apiToken, onNavigate }: Props) {
         <StatusBar
           keys={[{ key: "Esc", label: "Volver" }]}
           error={error ?? undefined}
+        />
+      </Box>
+    );
+  }
+
+  // ── Buscar entrada para eliminar ───────────────────────────────────────────
+  if (mode === "delete-search") {
+    return (
+      <Box flexDirection="column" gap={1}>
+        <Box borderStyle="round" borderColor="red" paddingX={2} paddingY={0}>
+          <Text bold color="red">
+            🗑️ Eliminar entrada — Búsqueda
+          </Text>
+        </Box>
+        <Text dimColor>
+          Esta acción es irreversible. Buscá la entrada que querés eliminar.
+        </Text>
+        <Box flexDirection="column" gap={1}>
+          <Box gap={1}>
+            <Text color="gray">Proyecto:</Text>
+            <TextInput
+              value={deleteProject}
+              onChange={setDeleteProject}
+              onSubmit={() => {}}
+              placeholder="project-slug (Enter para pasar a la búsqueda)"
+            />
+          </Box>
+          <Box gap={1}>
+            <Text color="gray">Búsqueda:</Text>
+            <TextInput
+              value={deleteQuery}
+              onChange={setDeleteQuery}
+              onSubmit={(q) => {
+                if (q.trim() && deleteProject.trim())
+                  searchForDelete(q, deleteProject);
+              }}
+              placeholder="título o contenido... (Enter para buscar)"
+            />
+          </Box>
+        </Box>
+        {error && <ErrorPanel message={error} />}
+        <StatusBar
+          keys={[
+            { key: "Enter", label: "Buscar" },
+            { key: "Esc", label: "Volver" },
+          ]}
+        />
+      </Box>
+    );
+  }
+
+  // ── Resultados de búsqueda para delete ──────────────────────────────────────
+  if (mode === "delete-results") {
+    return (
+      <Box flexDirection="column" gap={1}>
+        <Box borderStyle="round" borderColor="red" paddingX={2} paddingY={0}>
+          <Text bold color="red">
+            🗑️ Seleccioná la entrada a eliminar
+          </Text>
+        </Box>
+        <Text dimColor>
+          {deleteResults.length} resultado
+          {deleteResults.length !== 1 ? "s" : ""} para "{deleteQuery}"
+        </Text>
+        <Box flexDirection="column">
+          {deleteResults.map((entry, i) => {
+            const sel = i === deleteCursor;
+            return (
+              <Box
+                key={entry.id}
+                paddingX={1}
+                gap={1}
+                borderStyle={sel ? "single" : undefined}
+                borderColor={sel ? "red" : undefined}
+              >
+                {sel ? <Text color="red">▶</Text> : <Text> </Text>}
+                <TypeBadge type={entry.type} />
+                <AreaBadge area={entry.area} />
+                <Text bold={sel} wrap="truncate-end">
+                  {entry.title}
+                </Text>
+              </Box>
+            );
+          })}
+        </Box>
+        {deleteResults.length === 0 && (
+          <Box paddingX={2}>
+            <Text dimColor>Sin resultados. Intentá otra búsqueda.</Text>
+          </Box>
+        )}
+        <StatusBar
+          keys={[
+            { key: "↑↓", label: "Navegar" },
+            { key: "Enter", label: "Seleccionar" },
+            { key: "Esc", label: "Nueva búsqueda" },
+          ]}
+        />
+      </Box>
+    );
+  }
+
+  // ── Confirmación de eliminación ─────────────────────────────────────────────
+  if (mode === "delete-confirm" && entryToDelete) {
+    return (
+      <Box flexDirection="column" gap={1}>
+        <Box
+          borderStyle="round"
+          borderColor="red"
+          paddingX={2}
+          paddingY={1}
+          flexDirection="column"
+          gap={1}
+        >
+          <Text bold color="red">
+            ⚠ Confirmación de eliminación permanente
+          </Text>
+          <Box gap={1}>
+            <TypeBadge type={entryToDelete.type} />
+            <AreaBadge area={entryToDelete.area} />
+          </Box>
+          <Text bold color="white">
+            {entryToDelete.title}
+          </Text>
+          <Text color="gray" dimColor wrap="truncate-end">
+            {entryToDelete.content.slice(0, 100)}
+            {entryToDelete.content.length > 100 ? "…" : ""}
+          </Text>
+          <Text color="red" dimColor>
+            Esta acción no se puede deshacer. La entrada y su historial de
+            accesos serán eliminados.
+          </Text>
+        </Box>
+        {error && <ErrorPanel message={error} />}
+        <SelectInput
+          items={[
+            { label: "🗑️  Confirmar — eliminar permanentemente", value: "yes" },
+            { label: "← Cancelar — volver a los resultados", value: "no" },
+          ]}
+          onSelect={(item) => {
+            if (item.value === "yes") confirmDelete(entryToDelete);
+            else setMode("delete-results");
+          }}
+        />
+      </Box>
+    );
+  }
+
+  // ── Eliminación completada ──────────────────────────────────────────────────
+  if (mode === "delete-done") {
+    return (
+      <Box flexDirection="column" gap={1}>
+        <Box
+          borderStyle="round"
+          borderColor="green"
+          paddingX={2}
+          paddingY={1}
+          flexDirection="column"
+          gap={1}
+        >
+          <Text bold color="green">
+            ✓ Entrada eliminada
+          </Text>
+          {message && <Text color="white">{message}</Text>}
+        </Box>
+        <SelectInput
+          items={[
+            { label: "🗑️  Eliminar otra entrada", value: "again" },
+            { label: "← Volver al menú Admin", value: "menu" },
+          ]}
+          onSelect={(item) => {
+            if (item.value === "again") {
+              setDeleteQuery("");
+              setMode("delete-search");
+            } else {
+              setMsg(null);
+              setMode("menu");
+            }
+          }}
         />
       </Box>
     );
