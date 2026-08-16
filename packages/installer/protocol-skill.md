@@ -5,18 +5,40 @@ description: Protocolo universal para usar el sistema de memoria persistente com
 
 # Team Memory — Protocolo Universal
 
-Este skill define cómo usar las tools del servidor MCP `team-memory` durante cualquier sesión de desarrollo, independientemente del proyecto, del LLM, o de si existe un agente de memoria custom para ese repo en particular.
+Este skill define cómo usar las tools del servidor MCP `team-memory` durante cualquier sesión de trabajo, independientemente del proyecto, del LLM, o de si existe un agente de memoria custom para ese repo en particular.
 
 ## Tools disponibles
 
-| Tool | Uso |
-|---|---|
-| `list_projects` | Ver qué proyectos tienen conocimiento guardado |
-| `get_context` | Cargar el contexto completo de un proyecto al inicio de sesión |
-| `search_memory` | Búsqueda híbrida (semántica + keywords) sobre el conocimiento activo |
-| `save_memory` | Persistir una entrada nueva |
-| `update_memory` | Corregir o extender una entrada existente |
-| `compact_memory` | Compactar entradas viejas y poco usadas en SUMMARYs (solo a pedido explícito) |
+| Tool | Rol mínimo | Uso |
+|---|---|---|
+| `list_projects` | reader | Ver qué proyectos tienen conocimiento guardado |
+| `get_context` | reader | Cargar el contexto completo de un proyecto al inicio de sesión |
+| `search_memory` | reader | Búsqueda híbrida (semántica + keywords) sobre el conocimiento activo |
+| `get_memory_stats` | reader | Health del proyecto: accesos, autores, candidatos a compactación |
+| `compact_memory` dry_run | reader | Preview de compactación sin ejecutar cambios |
+| `save_memory` | writer | Persistir una entrada nueva |
+| `update_memory` | writer | Corregir o extender una entrada existente |
+| `compact_memory` real | admin | Compactar entradas viejas en SUMMARYs (solo a pedido explícito) |
+| `delete_memory` | admin | Eliminar una entrada permanentemente (irreversible, `confirm: true` obligatorio) |
+
+## Autenticación — transparente para el agente
+
+El token de autenticación está configurado automáticamente por el instalador en cada herramienta de IA. El agente no necesita hacer ninguna acción especial — el token se incluye en cada request al servidor MCP sin intervención.
+
+**Roles del sistema:**
+- `reader` — solo lectura: buscar, ver contexto, ver stats
+- `writer` — lectura + escritura: todo lo anterior + guardar y editar entradas (rol por defecto)
+- `admin` — acceso completo: todo lo anterior + compact real + delete + gestión de usuarios
+
+**Si el servidor responde con error 403:** la operación requiere un rol superior al del usuario actual. Informar al usuario brevemente y no reintentar:
+```
+[team-memory] Sin permiso para esta operación. Requiere rol: admin.
+```
+
+**Si el servidor no responde o hay error de conexión:** no es bloqueante. Continuar la sesión sin memoria e informar brevemente:
+```
+[team-memory] Servidor no disponible — continuando sin memoria del equipo.
+```
 
 ## Resolver `project_slug` — flujo obligatorio al iniciar
 
@@ -36,7 +58,7 @@ Usarlo directamente, sin preguntar nada.
 
 ### Caso B — `.team-memory.json` existe pero sin `project_slug`
 
-El archivo puede existir con otros campos de configuración futura pero sin el slug todavía. Seguir el flujo interactivo (ver abajo) y **actualizar el campo `project_slug` sin tocar los campos existentes**.
+El archivo puede existir con otros campos de configuración pero sin el slug todavía. Seguir el flujo interactivo (ver abajo) y **actualizar el campo `project_slug` sin tocar los campos existentes**.
 
 ### Caso C — `.team-memory.json` no existe
 
@@ -84,11 +106,11 @@ Caso C — crear archivo:
 }
 ```
 
-**5. Confirmar al dev**:
+**5. Confirmar al usuario**:
 ```
 [team-memory] Proyecto: ecommerce-frontend (guardado en .team-memory.json)
 Podés editar ese archivo manualmente si el nombre no es correcto.
-El archivo debería commitearse para que todos los devs del equipo usen el mismo slug.
+El archivo debería commitearse para que todos los miembros del equipo usen el mismo slug.
 ```
 
 ### Siempre mostrar el slug activo
@@ -98,7 +120,7 @@ Al inicio de cada sesión, independientemente del caso, informar brevemente:
 [team-memory] Proyecto: <slug> · <N> entradas activas · <fuente>
 ```
 
-Esto permite al dev detectar rápidamente si el slug es incorrecto y corregirlo antes de que el agente trabaje con el contexto equivocado.
+Esto permite detectar rápidamente si el slug es incorrecto y corregirlo antes de trabajar con el contexto equivocado.
 
 ## Resolver `area` — cascada de 4 niveles
 
@@ -154,7 +176,7 @@ Si los niveles 1 y 2 no aplican o no resuelven con confianza, inferir del contex
 
 Solo usar esta inferencia cuando el contexto es claro. En caso de duda, pasar al Nivel 4.
 
-### Nivel 4 — Preguntar al dev
+### Nivel 4 — Preguntar al usuario
 
 Solo cuando los tres niveles anteriores no resuelven con confianza:
 
@@ -169,7 +191,7 @@ Solo cuando los tres niveles anteriores no resuelven con confianza:
 en .team-memory.json)
 ```
 
-Después de que el dev responda, el agente puede sugerir agregar o actualizar el `area_map` si la pregunta se repite con el mismo directorio.
+Después de que el usuario responda, el agente puede sugerir agregar o actualizar el `area_map` si la pregunta se repite con el mismo directorio.
 
 ### Decisiones cross-area
 
@@ -195,7 +217,7 @@ Al persistir cualquier entrada, informar brevemente de dónde vino el área:
 [team-memory] Guardado: "BUG: Input validation" → area: frontend (area_map: src/frontend/)
 ```
 
-
+## Tipos de entrada
 
 `type` — 9 tipos, con reglas de clasificación:
 
@@ -230,7 +252,7 @@ Si `get_context` devuelve `total_entries: 0` o el proyecto no aparece en `list_p
 
 Antes de responder cualquier pregunta técnica sobre el proyecto (arquitectura, por qué se hizo algo así, bugs conocidos, convenciones del equipo), llamar `search_memory` primero. No asumir ni inventar contexto que podría estar documentado.
 
-Si `search_memory` devuelve un `ANTI_PATTERN` relacionado con algo que el dev está por hacer, advertirlo proactivamente antes de proceder.
+Si `search_memory` devuelve un `ANTI_PATTERN` relacionado con algo que el usuario está por hacer, advertirlo proactivamente antes de proceder.
 
 ### 3. Antes de persistir — deduplicación
 
@@ -261,27 +283,43 @@ Para estos tipos, `save_memory` inserta directamente sin verificar duplicados.
 | Señal | Acción |
 |---|---|
 | Se tomó una decisión técnica con razonamiento explícito | `save_memory` tipo `DECISION` |
-| Se resolvió un bug que tomó tiempo no trivial diagnosticar | `save_memory` tipo `BUG` + `FIX` (pueden ser dos entradas separadas) |
+| Se resolvió un bug que tomó tiempo no trivial diagnosticar | `save_memory` tipo `BUG` + `FIX` |
 | Se confirmó o corrigió una convención del equipo | `save_memory`/`update_memory` tipo `PATTERN` |
 | Se identificó algo que no hay que repetir | `save_memory` tipo `ANTI_PATTERN` |
 | Se descubrió algo no obvio sobre el sistema | `save_memory` tipo `INSIGHT` |
-| Se completó una feature, ruta, módulo o refactor estructural | `save_memory` tipo `SUMMARY` (al cerrar el trabajo) |
+| Se completó una feature, ruta, módulo o refactor estructural | `save_memory` tipo `SUMMARY` |
 | Queda trabajo a medio terminar para la próxima sesión | `save_memory` tipo `TASK_CONTEXT` |
-| Se documentó la estructura del repo (dónde vive algo) | `save_memory` tipo `REPOSITORY_NOTE` |
+| Se documentó la estructura del repo | `save_memory` tipo `REPOSITORY_NOTE` |
 
-**Por defecto, proponer al dev antes de guardar** — mostrar el contenido completo que se va a persistir y esperar confirmación, salvo que el dev haya indicado explícitamente "guardá automáticamente sin preguntar" para la sesión.
+**Por defecto, proponer al usuario antes de guardar** — mostrar el contenido completo que se va a persistir y esperar confirmación, salvo indicación explícita de "guardá automáticamente sin preguntar".
 
 ### 5. Compactación
 
-`compact_memory` **nunca se ejecuta de forma autónoma**. Solo a pedido explícito del dev, y siempre:
+`compact_memory` **nunca se ejecuta de forma autónoma**. Solo a pedido explícito, y siempre:
 
 ```
-1. Primero con dry_run: true — mostrar el preview completo (cuántas entradas, qué grupos, qué SUMMARYs se crearían)
+1. Primero con dry_run: true — mostrar el preview completo
 2. Esperar confirmación explícita
-3. Solo entonces ejecutar con dry_run: false
+3. Solo entonces ejecutar con dry_run: false (requiere rol admin)
 ```
 
 `SUMMARY` y `TASK_CONTEXT` nunca son candidatos a compactación — el sistema los excluye automáticamente.
+
+### 6. Eliminación de entradas
+
+`delete_memory` **solo está disponible para usuarios con rol admin** y debe usarse únicamente a pedido explícito. La eliminación es permanente e irreversible.
+
+Flujo correcto:
+```
+1. Usuario pide eliminar una entrada
+2. search_memory para identificar la entrada exacta
+3. Mostrar el contenido completo al usuario y pedir confirmación
+4. Solo si el usuario confirma explícitamente:
+   delete_memory({ entry_id: "uuid", confirm: true })
+5. Si el servidor responde 403: informar que se requiere rol admin
+```
+
+Nunca eliminar entradas de forma autónoma, aunque el usuario haya dicho "limpiá las entradas viejas" — en ese caso proponer `compact_memory` en su lugar.
 
 ## Formato de contenido al guardar
 
@@ -293,17 +331,19 @@ Para estos tipos, `save_memory` inserta directamente sin verificar duplicados.
   - `ANTI_PATTERN`: qué no hacer + por qué falla + qué hacer en su lugar
   - `PATTERN`: la regla + ejemplo concreto si aplica
   - `SUMMARY`: resumen ejecutivo + bullets de lo más relevante + período cubierto
-- `tags`: términos técnicos relevantes (tecnologías, nombres de archivos/componentes, área temática) — mejoran tanto la búsqueda por keywords como la organización
-- `author`: nombre del dev si se conoce, o `"ai-session"` si no hay forma de saberlo
+- `tags`: términos técnicos relevantes (tecnologías, nombres de archivos/componentes, área temática)
+- `author`: nombre del usuario si se conoce, o `"ai-session"` si no hay forma de saberlo
 
 ## Coexistencia con agentes de memoria custom
 
-Si el repo tiene un agente de memoria específico (por ejemplo `.claude/agents/memory.md` o `.github/agents/memory.agent.md` con su propia tabla de triggers), ese agente tiene prioridad — está afinado para ese pipeline en particular. Este skill es el comportamiento **base** que garantiza que la memoria se use incluso en repos sin un agente custom, o en sesiones que no pasan por un orquestador.
+Si el repo tiene un agente de memoria específico (por ejemplo `.claude/agents/memory.md`), ese agente tiene prioridad — está afinado para ese pipeline en particular. Este skill es el comportamiento **base** que garantiza que la memoria se use incluso en repos sin un agente custom, o en sesiones que no pasan por un orquestador.
 
 ## Errores comunes a evitar
 
 - No guardar información trivial que ya está en la documentación oficial del proyecto
 - No crear `SUMMARY` por cada mensaje — solo al cerrar un bloque de trabajo significativo
-- No ejecutar `compact_memory` "para probar" — siempre es a pedido explícito
-- No asumir que `project_slug` es el mismo entre proyectos distintos del mismo dev — resolver siempre por repo
-- No tratar errores de conexión al MCP como bloqueantes — si el servidor no responde, continuar la sesión sin memoria e informar al dev brevemente
+- No ejecutar `compact_memory` de forma autónoma — siempre a pedido explícito con dry_run primero
+- No ejecutar `delete_memory` de forma autónoma — siempre a pedido explícito con confirmación
+- No asumir que `project_slug` es el mismo entre proyectos distintos del mismo usuario — resolver siempre por repo
+- No tratar errores de conexión al MCP como bloqueantes — continuar la sesión e informar brevemente
+- No repetir la búsqueda de `project_slug` en cada llamada — resolverlo una vez al inicio y reutilizarlo
