@@ -10,17 +10,22 @@
  *  6. get_memory_stats — overview, accesos, autores, candidatos a compactación
  *  7. compact_memory   — dry_run + ejecución real (con --compact)
  *  8. Verificación post-compactación
+ *  9. Auth — bootstrap, register, invite tokens, roles y permisos (con --auth)
  *
  * Uso:
  *   node --env-file=.env scripts/test-system.mjs
  *   node --env-file=.env scripts/test-system.mjs --compact    → también compacta de verdad
  *   node --env-file=.env scripts/test-system.mjs --area=backend
  *   node --env-file=.env scripts/test-system.mjs --only=3,4,5 → solo tests específicos
+ *   node --env-file=.env scripts/test-system.mjs --auth        → incluye tests de auth (test 9)
+ *   node --env-file=.env scripts/test-system.mjs --token=sk-admin-xxx → usar token específico
  */
 
 const DO_COMPACT  = process.argv.includes('--compact')
+const DO_AUTH     = process.argv.includes('--auth')
 const AREA_FILTER = process.argv.find(a => a.startsWith('--area='))?.split('=')[1]
 const ONLY_ARG    = process.argv.find(a => a.startsWith('--only='))?.split('=')[1]
+const TOKEN_ARG   = process.argv.find(a => a.startsWith('--token='))?.split('=')[1]
 const ONLY_TESTS  = ONLY_ARG ? ONLY_ARG.split(',').map(Number) : null
 const PROJECT     = 'ecommerce-platform'
 
@@ -430,6 +435,171 @@ if (!skip(7)) {
   }
 }
 
+// ── TEST 9: Auth — bootstrap, invites, roles y permisos ──────────────────────
+
+if (!skip(9) && DO_AUTH) {
+  head(9, 'Auth — endpoints y permisos por rol')
+
+  const BASE_URL  = process.env.MCP_URL?.replace(/\/mcp\/?$/, '') ?? `http://localhost:${process.env.MCP_PORT ?? 3100}`
+  const authFetch = async (path, opts = {}) => {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      ...opts,
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': TOKEN_ARG ? `Bearer ${TOKEN_ARG}` : '',
+        ...((opts.headers ?? {})),
+      },
+    })
+    return { status: res.status, body: await res.json() }
+  }
+
+  sub('Health — verificar que auth está habilitada')
+  const health = await fetch(`${BASE_URL}/health`).then(r => r.json())
+  should(health.auth === 'enabled', `AUTH_ENABLED=true detectado (auth: ${health.auth})`)
+
+  if (health.auth !== 'enabled') {
+    warn('AUTH_ENABLED no es true — saltando tests de auth.')
+    warn('Configurá AUTH_ENABLED=true en .env y reiniciá el servidor.')
+  } else {
+
+    // ── Verificar token si fue pasado por flag ──────────────────────────────
+    if (TOKEN_ARG) {
+      sub('Verificar token (--token)')
+      const me = await authFetch('/auth/me')
+      should(me.status === 200, `GET /auth/me → 200 OK`)
+      if (me.status === 200) {
+        info(`Usuario: ${me.body.user.username} (${me.body.user.role})`)
+        should(!!me.body.user.username, 'username presente')
+        should(['reader','writer','admin'].includes(me.body.user.role), 'rol válido')
+      }
+    }
+
+    // ── Test bootstrap (solo si no hay usuarios) ────────────────────────────
+    sub('Bootstrap — crear primer admin')
+    const bootstrapToken = process.env.ADMIN_BOOTSTRAP_TOKEN
+    if (!bootstrapToken) {
+      warn('ADMIN_BOOTSTRAP_TOKEN no configurado en .env — saltando test de bootstrap.')
+    } else {
+      const boot = await fetch(`${BASE_URL}/auth/bootstrap`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${bootstrapToken}` },
+        body:    JSON.stringify({ username: 'test-admin', device_name: 'test-system' }),
+      }).then(r => r.json().then(b => ({ status: r.status, body: b })))
+
+      if (boot.status === 409) {
+        info('Bootstrap ya fue ejecutado (ya existe un usuario) — omitiendo.')
+      } else {
+        should(boot.status === 200, `POST /auth/bootstrap → 200 OK (status: ${boot.status})`)
+        if (boot.status === 200) {
+          info(`Admin creado: ${boot.body.user?.username}`)
+          info(`Token: ${boot.body.token?.slice(0, 20)}...`)
+        }
+      }
+    }
+
+    // ── Test de invites (requiere token admin) ──────────────────────────────
+    if (TOKEN_ARG) {
+      sub('Invite tokens — crear y listar')
+
+      const createInvite = await authFetch('/auth/invites', {
+        method: 'POST',
+        body:   JSON.stringify({ role: 'writer', expires_in_hours: 1 }),
+      })
+      should(createInvite.status === 200 || createInvite.status === 403,
+        `POST /auth/invites → ${createInvite.status}`)
+      if (createInvite.status === 200) {
+        info(`Invite creado: ${createInvite.body.token?.slice(0, 20)}...`)
+        info(`Uso: ${createInvite.body.usage}`)
+
+        const inviteToken = createInvite.body.token
+
+        // Listar invites
+        const listInvites = await authFetch('/auth/invites')
+        should(listInvites.status === 200, `GET /auth/invites → 200 OK`)
+        should(listInvites.body.invites?.length >= 1, `Al menos 1 invite listado`)
+
+        // Registrar usuario de prueba con el invite
+        sub('Register — registrarse con invite token')
+        const testUsername = `test-user-${Date.now()}`
+        const register = await fetch(`${BASE_URL}/auth/register`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ invite_token: inviteToken, username: testUsername, device_name: 'test-system' }),
+        }).then(r => r.json().then(b => ({ status: r.status, body: b })))
+
+        should(register.status === 200, `POST /auth/register → 200 OK`)
+        if (register.status === 200) {
+          const newUserToken = register.body.token
+          info(`Usuario registrado: ${register.body.user?.username} (${register.body.user?.role})`)
+          info(`Token: ${newUserToken?.slice(0, 20)}...`)
+
+          // Verificar que el token nuevo funciona
+          const verify = await fetch(`${BASE_URL}/auth/me`, {
+            headers: { 'Authorization': `Bearer ${newUserToken}` },
+          }).then(r => r.json().then(b => ({ status: r.status, body: b })))
+          should(verify.status === 200, 'Nuevo token válido en /auth/me')
+
+          // El invite ya no funciona (un solo uso)
+          const reuseInvite = await fetch(`${BASE_URL}/auth/register`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ invite_token: inviteToken, username: `otro-user-${Date.now()}` }),
+          }).then(r => r.json().then(b => ({ status: r.status, body: b })))
+          should(reuseInvite.status === 409, 'Invite de un solo uso — segundo uso rechazado (409)')
+        }
+
+      } else if (createInvite.status === 403) {
+        warn('Token sin rol admin — no se pueden crear invites (esperado para writer/reader).')
+      }
+
+      // ── Test de permisos por rol ────────────────────────────────────────
+      sub('Permisos — verificar restricciones por rol')
+      const me = await authFetch('/auth/me')
+      if (me.status === 200) {
+        const role = me.body.user.role
+        info(`Rol del token de prueba: ${role}`)
+
+        // Listar usuarios (solo admin)
+        const listUsers = await authFetch('/auth/users')
+        if (role === 'admin') {
+          should(listUsers.status === 200, 'admin puede GET /auth/users')
+          if (listUsers.status === 200) info(`${listUsers.body.users?.length} usuarios en el sistema`)
+        } else {
+          should(listUsers.status === 403, `${role} no puede GET /auth/users (esperado 403)`)
+        }
+
+        // Crear invite (solo admin)
+        const tryInvite = await authFetch('/auth/invites', { method: 'POST', body: JSON.stringify({ role: 'reader' }) })
+        if (role === 'admin') {
+          should(tryInvite.status === 200, 'admin puede crear invites')
+        } else {
+          should(tryInvite.status === 403, `${role} no puede crear invites (esperado 403)`)
+        }
+      }
+    } else {
+      warn('Pasá --token=<admin-token> para testear invites, register y permisos.')
+      info('Ejemplo: node --env-file=.env scripts/test-system.mjs --auth --token=sk-admin-...')
+    }
+
+    // ── Test token inválido en /mcp ─────────────────────────────────────────
+    sub('Seguridad — token inválido rechazado en /mcp')
+    const badToken = await fetch(`${BASE_URL}/mcp`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer token-invalido-123' },
+      body:    JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'list_projects', arguments: {} } }),
+    })
+    should(badToken.status === 401, `Token inválido → 401 (status: ${badToken.status})`)
+
+    // ── Sin token en /mcp ───────────────────────────────────────────────────
+    const noToken = await fetch(`${BASE_URL}/mcp`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'list_projects', arguments: {} } }),
+    })
+    should(noToken.status === 401, `Sin token → 401 (status: ${noToken.status})`)
+  }
+}
+
 // ── Resumen final ─────────────────────────────────────────────────────────────
 
 console.log(`\n${c.bold}${c.purple}${'═'.repeat(58)}${c.reset}`)
@@ -443,7 +613,8 @@ console.log(`${c.green}✓${c.reset} update_memory      — append, add_tags, st
 console.log(`${c.green}✓${c.reset} get_memory_stats   — overview, accesos, autores, health, user_id reservado`)
 console.log(`${c.green}✓${c.reset} compact_memory     — dry_run verificado`)
 if (DO_COMPACT) console.log(`${c.green}✓${c.reset} compact_memory     — ejecución real + verificación post-compact`)
+if (DO_AUTH)    console.log(`${c.green}✓${c.reset} auth               — bootstrap, invites, register, permisos`)
 console.log('')
-console.log(`${c.gray}Flags disponibles: --compact, --area=<area>, --only=<n,n,n>${c.reset}`)
+console.log(`${c.gray}Flags disponibles: --compact, --area=<area>, --only=<n,n,n>, --auth, --token=<token>${c.reset}`)
 
 await pool.end()

@@ -7,21 +7,25 @@
  *  - access_count simulado (reciente=moderado, antigua=bajo+alguna protegida)
  *  - Varios autores para probar get_memory_stats por author
  *  - Un par de entradas con título casi idéntico para probar deduplicación
+ *  - Usuarios de prueba en las tablas de auth (si AUTH_ENABLED=true)
  *
  * Uso:
  *   node --env-file=.env scripts/seed.mjs              → con embeddings (~15 min)
  *   node --env-file=.env scripts/seed.mjs --quick      → sin embeddings (~30 seg)
  *   node --env-file=.env scripts/seed.mjs --clean      → borra datos previos primero
  *   node --env-file=.env scripts/seed.mjs --quick --clean
+ *   node --env-file=.env scripts/seed.mjs --skip-auth  → no crear usuarios de prueba
  */
 
 import pg from 'pg'
+import { randomBytes } from 'node:crypto'
 const { Pool } = pg
 
-const QUICK   = process.argv.includes('--quick')
-const CLEAN   = process.argv.includes('--clean')
-const PROJECT = 'ecommerce-platform'
-const PER_TYPE = 100
+const QUICK     = process.argv.includes('--quick')
+const CLEAN     = process.argv.includes('--clean')
+const SKIP_AUTH = process.argv.includes('--skip-auth')
+const PROJECT   = 'ecommerce-platform'
+const PER_TYPE  = 100
 
 const pool = new Pool({
   host: process.env.DB_HOST ?? 'localhost',
@@ -182,6 +186,95 @@ async function insert({ projectId, area, type, title, content, tags, author, cre
 
 const TYPES = ['BUG','FIX','DECISION','INSIGHT','PATTERN','ANTI_PATTERN','REPOSITORY_NOTE','TASK_CONTEXT','SUMMARY']
 
+// ── Auth seed — usuarios de prueba ────────────────────────────────────────────
+
+const TEST_USERS = [
+  { username: 'lucas',  role: 'admin'  },
+  { username: 'sofia',  role: 'writer' },
+  { username: 'martin', role: 'writer' },
+  { username: 'ana',    role: 'writer' },
+  { username: 'diego',  role: 'reader' },
+  { username: 'carla',  role: 'writer' },
+]
+
+async function seedAuth() {
+  // Verificar si la migración 003 está aplicada
+  const check = await pool.query(`
+    SELECT EXISTS (
+      SELECT FROM information_schema.tables
+      WHERE table_name = 'users'
+    ) AS exists
+  `)
+  if (!check.rows[0].exists) {
+    console.log('   ⚠ Tabla users no existe — aplicá db:migrate:003 para crear las tablas de auth.')
+    console.log('   Saltando seed de usuarios.\n')
+    return {}
+  }
+
+  const tokens = {}
+
+  for (const { username, role } of TEST_USERS) {
+    // Idempotente: si ya existe el usuario, obtener su token activo
+    const existing = await pool.query(
+      'SELECT id FROM users WHERE username = $1', [username]
+    )
+
+    let userId
+    if (existing.rows.length > 0) {
+      userId = existing.rows[0].id
+    } else {
+      const res = await pool.query(
+        `INSERT INTO users (username, role) VALUES ($1, $2) RETURNING id`,
+        [username, role]
+      )
+      userId = res.rows[0].id
+    }
+
+    // Buscar token activo existente o crear uno nuevo
+    const existingToken = await pool.query(
+      `SELECT token FROM api_tokens WHERE user_id = $1 AND revoked_at IS NULL LIMIT 1`,
+      [userId]
+    )
+
+    let token
+    if (existingToken.rows.length > 0) {
+      token = existingToken.rows[0].token
+    } else {
+      token = `sk-${role}-seed-${randomBytes(16).toString('hex')}`
+      await pool.query(
+        `INSERT INTO api_tokens (token, user_id, device_name) VALUES ($1, $2, 'seed-script')`,
+        [token, userId]
+      )
+    }
+
+    tokens[username] = { userId, token, role }
+  }
+
+  return tokens
+}
+
+async function cleanAuth() {
+  // Verificar si la migración 003 está aplicada
+  const check = await pool.query(`
+    SELECT EXISTS (
+      SELECT FROM information_schema.tables
+      WHERE table_name = 'users'
+    ) AS exists
+  `)
+  if (!check.rows[0].exists) return
+
+  const usernames = TEST_USERS.map(u => u.username)
+  await pool.query(
+    `DELETE FROM api_tokens WHERE user_id IN (
+       SELECT id FROM users WHERE username = ANY($1)
+     )`,
+    [usernames]
+  )
+  await pool.query(
+    'DELETE FROM users WHERE username = ANY($1)', [usernames]
+  )
+}
+
 async function main() {
   console.log('╔══════════════════════════════════════════════════════╗')
   console.log('║   team-memory — Seed Script v2                       ║')
@@ -192,6 +285,7 @@ async function main() {
   if (CLEAN) {
     console.log('🧹 Limpiando datos previos...')
     await pool.query('DELETE FROM projects WHERE slug = $1', [PROJECT])
+    if (!SKIP_AUTH) await cleanAuth()
     console.log('   Listo.\n')
   }
 
@@ -230,6 +324,27 @@ async function main() {
     [projectId]
   )
   console.log('   ✓ 2 entradas con título idéntico insertadas (duplicate_risk test)\n')
+
+  // Seed de auth
+  if (!SKIP_AUTH) {
+    console.log('👤 Creando usuarios de prueba...')
+    const authTokens = await seedAuth()
+    if (Object.keys(authTokens).length > 0) {
+      console.log('')
+      console.log('   Usuarios y tokens de prueba:')
+      console.log('   ┌──────────────┬──────────┬──────────────────────────────────────────────────┐')
+      console.log('   │ Username     │ Rol      │ Token                                            │')
+      console.log('   ├──────────────┼──────────┼──────────────────────────────────────────────────┤')
+      for (const [username, { token, role }] of Object.entries(authTokens)) {
+        console.log(`   │ ${username.padEnd(12)} │ ${role.padEnd(8)} │ ${token.slice(0, 48)} │`)
+      }
+      console.log('   └──────────────┴──────────┴──────────────────────────────────────────────────┘')
+      console.log('')
+      console.log('   💡 Usar en test-system: --token=<token>')
+      console.log('   💡 Usar en TUI:         memory-tui --token=<token>')
+      console.log('')
+    }
+  }
 
   // Stats finales
   const stats = await pool.query(
