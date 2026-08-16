@@ -239,6 +239,7 @@ docker exec team-memory-ollama ollama pull llama3
 # 4. Aplicar migraciones
 npm run db:migrate
 npm run db:migrate:002
+npm run db:migrate:003
 # Con auth:
 docker exec -i team-memory-db psql -U $DB_USER -d $DB_NAME < db/migrations/003_auth.sql
 
