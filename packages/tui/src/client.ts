@@ -1,4 +1,4 @@
-import type { MemoryEntry, MemoryStats, CompactResult, Area, EntryType, Status } from './types.js'
+import type { MemoryEntry, MemoryStats, CompactResult, Area, EntryType, Status, Project } from './types.js'
 
 interface RpcResponse {
   jsonrpc: string
@@ -71,6 +71,12 @@ export async function checkHealth(baseUrl: string): Promise<boolean> {
 }
 
 // ── Tools ─────────────────────────────────────────────────────────────────────
+
+export async function apiListProjects(url: string): Promise<Project[]> {
+  const r = await call<{ projects?: Project[] } | Project[]>(url, 'list_projects', { include_stats: true })
+  if (Array.isArray(r)) return r
+  return (r as { projects?: Project[] }).projects ?? []
+}
 
 export async function apiGetStats(url: string, slug: string): Promise<MemoryStats> {
   const r = await call<{ stats: MemoryStats }>(url, 'get_memory_stats', {

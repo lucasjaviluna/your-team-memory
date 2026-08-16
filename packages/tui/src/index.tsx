@@ -13,6 +13,7 @@ const c = {
   red: "\x1b[31m",
   cyan: "\x1b[36m",
   gray: "\x1b[90m",
+  yellow: "\x1b[33m",
 };
 
 function parseToken(): string | null {
@@ -98,19 +99,17 @@ async function main() {
     `  ${c.green}✓${c.reset} Servidor   ${c.bold}${serverUrl.value}${c.reset}`,
   );
 
-  // ── project_slug ──────────────────────────────────────────────────────────
+  // ── project_slug — opcional, selector interactivo si no se encuentra ────────
   const projectSlug = resolveProjectSlug(args.project);
-  if (!projectSlug) {
-    console.error(`\n${c.red}✗${c.reset} No se encontró el project_slug.\n`);
-    console.error(`  memory-tui ${c.cyan}--project=nombre${c.reset}`);
-    console.error(
-      `  Agregar ${c.cyan}.team-memory.json${c.reset} al root del repo\n`,
+  if (projectSlug) {
+    console.log(
+      `  ${c.green}✓${c.reset} Proyecto   ${c.bold}${projectSlug.value}${c.reset}`,
     );
-    process.exit(1);
+  } else {
+    console.log(
+      `  ${c.yellow}⚠${c.reset} Proyecto   ${c.gray}no encontrado — se mostrará el selector${c.reset}`,
+    );
   }
-  console.log(
-    `  ${c.green}✓${c.reset} Proyecto   ${c.bold}${projectSlug.value}${c.reset}`,
-  );
 
   // ── Health check ──────────────────────────────────────────────────────────
   process.stdout.write(`  ${c.dim}  Conectando...${c.reset}`);
@@ -132,8 +131,6 @@ async function main() {
     serverUrl.value,
     explicitToken,
   );
-  // console.log(apiToken, isAdmin);
-  // return;
   if (isAdmin) {
     console.log(
       `  ${c.green}✓${c.reset} Modo admin ${c.gray}(acceso completo)${c.reset}`,
@@ -147,7 +144,7 @@ async function main() {
   render(
     <App
       url={serverUrl.value}
-      project={projectSlug.value}
+      project={projectSlug?.value}
       apiToken={apiToken}
       isAdmin={isAdmin}
     />,
