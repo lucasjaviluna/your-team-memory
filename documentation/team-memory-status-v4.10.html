@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>team-memory — Estado del sistema v4.10</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0d14;--s1:#111420;--s2:#171b28;--s3:#1d2232;
+  --border:#222840;--b2:#2a3050;
+  --text:#dde1ef;--muted:#64708a;--faint:#3c4460;
+  --purple:#9b8afb;--pd:#221e48;
+  --teal:#32d6bc;--td:#0c3230;
+  --amber:#ffb94a;--ad:#31220a;
+  --coral:#ff8585;--cd:#321414;
+  --green:#52e896;--gd:#0e3220;
+  --blue:#6bbeff;--bd:#0d2040;
+  --pink:#e879ab;--pkd:#2d0d1e;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15.5px;line-height:1.75}
+code{font-family:'JetBrains Mono',monospace;font-size:12.5px;background:var(--s3);color:var(--teal);padding:2px 7px;border-radius:5px}
+pre{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;font-size:13px;color:var(--text);line-height:1.7}
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+@media(max-width:860px){.layout{grid-template-columns:1fr}}
+.sb{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--s1);border-right:1px solid var(--border);padding:22px 0}
+@media(max-width:860px){.sb{display:none}}
+.sb-logo{padding:0 20px 20px;border-bottom:1px solid var(--border);margin-bottom:10px}
+.sb-name{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#fff}
+.sb-ver{font-size:11px;color:var(--muted);margin-top:2px}
+.live-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--green);margin-top:8px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:p 2s ease-in-out infinite}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.2}}
+.ng{font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);padding:14px 20px 5px}
+.nl{display:block;padding:7px 20px;font-size:12.5px;color:var(--muted);text-decoration:none;border-left:2px solid transparent;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nl:hover,.nl.on{color:var(--purple);border-left-color:var(--purple);background:rgba(155,138,251,.07)}
+main{overflow:hidden}
+.sec{padding:52px 50px;border-bottom:1px solid var(--border)}
+@media(max-width:680px){.sec{padding:36px 22px}}
+.hero{padding:76px 50px 60px;background:radial-gradient(ellipse 80% 55% at 50% 0%,rgba(155,138,251,.13),transparent 72%);border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+canvas{position:absolute;inset:0;opacity:.28;pointer-events:none}
+.ey{display:inline-flex;align-items:center;gap:7px;background:var(--pd);border:1px solid rgba(155,138,251,.4);color:var(--purple);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:5px 15px;border-radius:20px;margin-bottom:20px}
+h1{font-family:'JetBrains Mono',monospace;font-size:clamp(26px,4.5vw,42px);font-weight:700;color:#fff;letter-spacing:-.5px;line-height:1.18;margin-bottom:16px}
+h1 em{color:var(--purple);font-style:normal}
+.hsub{font-size:15.5px;color:var(--muted);max-width:560px;margin-bottom:30px;line-height:1.75}
+.sts{display:flex;gap:28px;flex-wrap:wrap}
+.sn{font-family:'JetBrains Mono',monospace;font-size:23px;font-weight:700;color:#fff}
+.sl{font-size:11.5px;color:var(--muted);margin-top:2px}
+.kk{font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:8px}
+h2{font-size:23px;font-weight:700;color:#fff;margin-bottom:12px;letter-spacing:-.2px}
+.lead{font-size:14.5px;color:var(--muted);margin-bottom:22px;max-width:640px;line-height:1.75}
+h3{font-size:16px;font-weight:600;color:#fff;margin:22px 0 10px}
+h4{font-size:14.5px;font-weight:600;color:#fff;margin:12px 0 6px}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:600px){.g2,.g3{grid-template-columns:1fr}}
+.card p{font-size:13.5px;color:var(--muted);line-height:1.7;margin-top:6px}
+.tw{border:1px solid var(--border);border-radius:10px;overflow:hidden;overflow-x:auto;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{background:var(--s2);padding:9px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+td{padding:10px 16px;border-top:1px solid var(--border);line-height:1.6;vertical-align:top}
+tr:hover td{background:rgba(255,255,255,.014)}
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:5px}
+.new-badge{background:var(--gd);color:var(--green);font-size:9px;vertical-align:middle;margin-left:6px}
+.cl{list-style:none;margin:8px 0}
+.cl li{display:flex;gap:9px;padding:5px 0;font-size:14px;color:var(--text);line-height:1.65}
+.cl.ch li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
+.cl.wa li::before{content:'⚠';color:var(--amber);flex-shrink:0}
+.cl.do li::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:9px}
+.ca{border-radius:10px;padding:13px 17px;margin:14px 0;font-size:13.5px;line-height:1.65;display:flex;gap:10px;align-items:flex-start}
+.ca-i{background:rgba(107,190,255,.07);border:1px solid rgba(107,190,255,.25)}
+.ca-t{background:rgba(82,232,150,.07);border:1px solid rgba(82,232,150,.25)}
+.ca-w{background:rgba(255,185,74,.07);border:1px solid rgba(255,185,74,.25)}
+.ca-n{background:rgba(155,138,251,.07);border:1px solid rgba(155,138,251,.25)}
+.steps{display:flex;flex-direction:column}
+.step{display:flex;gap:14px;padding:13px 0;border-bottom:1px solid var(--border)}
+.step:last-child{border-bottom:none}
+.snum{width:28px;height:28px;border-radius:50%;background:var(--pd);color:var(--purple);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.step h4{font-size:14.5px;font-weight:600;color:#fff;margin:0 0 3px}
+.step p{font-size:13.5px;color:var(--muted);line-height:1.65;margin:0}
+.cascade{display:flex;flex-direction:column}
+.cl-item{display:flex;gap:14px;padding:12px 16px;border:1px solid var(--border);background:var(--s2)}
+.cl-item:first-child{border-radius:10px 10px 0 0}
+.cl-item:last-child{border-radius:0 0 10px 10px;border-top:none}
+.cl-item:not(:first-child):not(:last-child){border-top:none}
+.cl-num{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--purple);background:var(--pd);padding:2px 8px;border-radius:4px;flex-shrink:0;margin-top:2px;height:fit-content}
+.cl-title{font-size:13.5px;font-weight:600;color:#fff;margin-bottom:3px}
+.cl-desc{font-size:13px;color:var(--muted);line-height:1.6}
+.tui-window{background:#0d0f1a;border:1px solid #2a3050;border-radius:10px;overflow:hidden;font-family:'JetBrains Mono',monospace;font-size:12.5px;margin:14px 0}
+.tui-titlebar{background:#171b28;padding:6px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #2a3050}
+.tui-dot{width:10px;height:10px;border-radius:50%}
+.tui-body{padding:14px 18px;line-height:1.65;color:#dde1ef}
+.tui-header{color:#32d6bc;border-bottom:1px solid #2a3050;padding-bottom:6px;margin-bottom:10px}
+.tui-row{padding:2px 0}
+.tui-selected{background:rgba(107,190,255,.15);color:#fff;padding:1px 4px;border-radius:3px}
+.tui-dim{color:#64708a}
+.tui-green{color:#52e896}
+.tui-yellow{color:#ffb94a}
+.tui-cyan{color:#32d6bc}
+.tui-blue{color:#6bbeff}
+.tui-red{color:#ff8585}
+.tui-bar{background:#1d2232;padding:6px 14px;border-top:1px solid #2a3050;display:flex;gap:14px;color:#64708a;font-size:11.5px}
+.tui-key{background:#2a3050;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px}
+.ph{display:flex;flex-direction:column}
+.ph-item{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)}
+.ph-item:last-child{border-bottom:none}
+.ph-v{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;flex-shrink:0;margin-top:2px;min-width:52px;text-align:center}
+.ph-title{font-size:14px;font-weight:600;color:#fff;margin-bottom:3px}
+.ph-desc{font-size:13px;color:var(--muted);line-height:1.6}
+footer{padding:30px 50px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media(max-width:680px){footer{padding:22px 22px;flex-direction:column;align-items:flex-start}}
+.fl{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--faint)}
+.fr{display:flex;gap:7px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sb">
+  <div class="sb-logo">
+    <div class="sb-name">team-memory</div>
+    <div class="sb-ver">v4.10 · Auth + TUI completa</div>
+    <div class="live-row"><div class="dot"></div>8 tools · Auth · TUI</div>
+  </div>
+  <span class="ng">Sistema</span>
+  <a href="#overview"     class="nl on">Overview</a>
+  <a href="#architecture" class="nl">Arquitectura</a>
+  <a href="#transport"    class="nl">Transportes</a>
+  <span class="ng">Auth</span>
+  <a href="#auth"         class="nl">Sistema de auth</a>
+  <a href="#roles"        class="nl">Roles y permisos</a>
+  <a href="#onboarding"   class="nl">Onboarding</a>
+  <a href="#endpoints"    class="nl">Endpoints REST</a>
+  <span class="ng">Configuración</span>
+  <a href="#config-file"  class="nl">.team-memory.json</a>
+  <a href="#slug"         class="nl">project_slug</a>
+  <a href="#area"         class="nl">area</a>
+  <span class="ng">Instalación</span>
+  <a href="#installer"    class="nl">Instalador CLI</a>
+  <a href="#install-tui"  class="nl">install-tui</a>
+  <span class="ng">TUI</span>
+  <a href="#tui"          class="nl">Terminal UI</a>
+  <a href="#tui-screens"  class="nl">Pantallas (7)</a>
+  <a href="#tui-run"      class="nl">Cómo ejecutar</a>
+  <span class="ng">MCP</span>
+  <a href="#tools"        class="nl">Las 8 tools</a>
+  <a href="#dedup"        class="nl">Deduplicación</a>
+  <a href="#types"        class="nl">9 tipos</a>
+  <a href="#agent-flow"   class="nl">Flujo del agente</a>
+  <span class="ng">Historial</span>
+  <a href="#patches"      class="nl">Patches V4.x</a>
+  <a href="#stack"        class="nl">Stack técnico</a>
+  <a href="#eval"         class="nl">Evaluación</a>
+  <a href="#roadmap"      class="nl">Roadmap</a>
+</nav>
+
+<main>
+
+<!-- HERO -->
+<div class="hero" id="top">
+  <canvas id="cv"></canvas>
+  <div class="ey"><div class="dot"></div>v4.10 · Auth + TUI Phase 1 completa</div>
+  <h1>team-<em>memory</em><br>Memoria persistente para<br>equipos que trabajan con IA</h1>
+  <p class="hsub">Servidor MCP on-premise con 8 tools, autenticación por roles, Terminal UI interactiva con selector de proyecto, y protocolos de agente actualizados para auth.</p>
+  <div class="sts">
+    <div><div class="sn">8</div><div class="sl">MCP tools</div></div>
+    <div><div class="sn">3</div><div class="sl">roles (r/w/admin)</div></div>
+    <div><div class="sn">7</div><div class="sl">pantallas TUI</div></div>
+    <div><div class="sn">11</div><div class="sl">endpoints auth</div></div>
+    <div><div class="sn">5</div><div class="sl">herramientas IA</div></div>
+  </div>
+</div>
+
+<!-- OVERVIEW -->
+<section class="sec" id="overview">
+  <div class="kk">El sistema</div>
+  <h2>¿Qué es team-memory?</h2>
+  <p class="lead">El conocimiento generado en sesiones de IA se pierde cuando se cierra la terminal. team-memory lo captura, lo estructura y lo hace disponible para cualquier miembro del equipo en cualquier sesión futura — no solo devs, también QA, diseñadores, POs y analistas funcionales.</p>
+  <div class="g3">
+    <div class="card"><h4>🔐 Auth por roles</h4><p>reader / writer / admin. Token personal por dispositivo. Invite tokens de un solo uso. Completamente transparente para el usuario final.</p></div>
+    <div class="card"><h4>🌐 Un comando</h4><p>Registra el MCP en Claude Code, Copilot, VS Code, Cursor y OpenCode. El token queda configurado automáticamente en cada herramienta.</p></div>
+    <div class="card"><h4>🖥️ TUI completa</h4><p>7 pantallas: Dashboard, Entradas, Búsqueda, Detalle, Compactar, Admin (roles), Selector de proyecto.</p></div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section class="sec" id="architecture">
+  <div class="kk">Cómo está construido</div>
+  <h2>Arquitectura en cuatro capas</h2>
+  <div style="display:flex;flex-direction:column">
+    <div style="border-radius:12px 12px 0 0;border:1px solid rgba(155,138,251,.3);background:rgba(155,138,251,.04);padding:18px 20px">
+      <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--purple);margin-bottom:12px">Capa 1 — Clientes de IA + TUI</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:#fff">Claude Code</strong></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:#fff">GitHub Copilot</strong></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:#fff">VS Code</strong></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:#fff">Cursor</strong></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:#fff">OpenCode</strong></div>
+        <div style="background:var(--s3);border:1px solid rgba(155,138,251,.3);border-radius:8px;padding:8px 14px;font-size:13px"><strong style="color:var(--purple)">memory-tui</strong></div>
+      </div>
+    </div>
+    <div style="border:1px solid rgba(255,185,74,.3);border-top:none;background:rgba(255,185,74,.04);padding:18px 20px">
+      <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--amber);margin-bottom:12px">Capa 2 — Auth · Bearer tokens por usuario · Roles reader/writer/admin</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12.5px"><code style="font-size:10.5px">requireAuth</code> <span style="color:var(--muted);font-size:11px">middleware</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12.5px"><code style="font-size:10.5px">checkToolPermission</code></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12.5px"><code style="font-size:10.5px">/auth/*</code> <span style="color:var(--muted);font-size:11px">11 endpoints</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12.5px"><code style="font-size:10.5px">AUTH_ENABLED</code> <span style="color:var(--muted);font-size:11px">toggle</span></div>
+      </div>
+    </div>
+    <div style="border:1px solid rgba(50,214,188,.3);border-top:none;background:rgba(50,214,188,.04);padding:18px 20px">
+      <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);margin-bottom:12px">Capa 3 — MCP Server · Node.js 22 + TypeScript · 8 tools</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 10px"><code style="font-size:10.5px">save_memory</code> <span style="color:var(--green);font-size:10px">writer</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 10px"><code style="font-size:10.5px">update_memory</code> <span style="color:var(--green);font-size:10px">writer</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 10px"><code style="font-size:10.5px">search_memory</code> <span style="color:var(--blue);font-size:10px">reader</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 10px"><code style="font-size:10.5px">get_context</code> <span style="color:var(--blue);font-size:10px">reader</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 10px"><code style="font-size:10.5px">list_projects</code> <span style="color:var(--blue);font-size:10px">reader</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 10px"><code style="font-size:10.5px">get_memory_stats</code> <span style="color:var(--blue);font-size:10px">reader</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 10px"><code style="font-size:10.5px">compact_memory</code> <span style="color:var(--coral);font-size:10px">admin*</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:7px 10px"><code style="font-size:10.5px">delete_memory</code> <span style="color:var(--coral);font-size:10px">admin</span></div>
+      </div>
+    </div>
+    <div style="border-radius:0 0 12px 12px;border:1px solid rgba(107,190,255,.3);border-top:none;background:rgba(107,190,255,.04);padding:18px 20px">
+      <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--blue);margin-bottom:12px">Capa 4 — PostgreSQL 16 + pgvector · Ollama local</div>
+      <div class="g2">
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px 13px"><strong style="font-size:13px;display:block;color:#fff;margin-bottom:3px">PostgreSQL 16 + pgvector</strong><span style="font-size:12px;color:var(--muted)">Texto + vectores 768d. Índices HNSW + GIN. Tablas auth: users, api_tokens, invite_tokens.</span></div>
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px 13px"><strong style="font-size:13px;display:block;color:#fff;margin-bottom:3px">Ollama (local)</strong><span style="font-size:12px;color:var(--muted)">nomic-embed-text (768d) · llama3 (SUMMARYs). Sin API keys, 100% on-premise.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRANSPORT -->
+<section class="sec" id="transport">
+  <div class="kk">Transporte</div>
+  <h2>Modos de conexión</h2>
+  <div class="g2">
+    <div class="card">
+      <h4>💻 stdio — servidor local</h4>
+      <p>El MCP corre como subproceso del cliente IA. Sin red, sin puertos. Solo para admins del servidor.</p>
+      <pre style="margin-top:10px"><code style="font-size:11.5px">MCP_TRANSPORT=stdio
+# ⚠ Expone credenciales al cliente</code></pre>
+    </div>
+    <div class="card">
+      <h4>🌐 Streamable HTTP — producción</h4>
+      <p>Servidor compartido del equipo. Endpoint <code>/mcp</code>, modo stateless. Auth via Bearer token.</p>
+      <pre style="margin-top:10px"><code style="font-size:11.5px">MCP_TRANSPORT=http
+MCP_PORT=3100
+AUTH_ENABLED=true</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- AUTH -->
+<section class="sec" id="auth">
+  <div class="kk">V4.5</div>
+  <h2>Sistema de autenticación</h2>
+  <p class="lead">Auth por Bearer token, transparente para el usuario final. El instalador configura el token automáticamente en cada herramienta de IA. El agente no necesita hacer nada especial — el token se incluye en cada request sin intervención.</p>
+
+  <h3>Tres tablas en la DB</h3>
+  <pre><code>-- users: quién puede acceder al sistema
+users (id UUID, username TEXT UNIQUE, email TEXT, role TEXT, created_at, revoked_at)
+
+-- api_tokens: un token por dispositivo por usuario
+api_tokens (id UUID, token TEXT UNIQUE, user_id UUID→users, device_name TEXT,
+            created_at, last_used, revoked_at)
+
+-- invite_tokens: de un solo uso, expiran en 48hs
+invite_tokens (id UUID, token TEXT UNIQUE, role TEXT, created_by UUID→users,
+               used_by UUID→users, expires_at, used_at)</code></pre>
+
+  <div class="ca ca-i"><div>ℹ️</div><div><code>AUTH_ENABLED=false</code> en el <code>.env</code> desactiva la auth completamente sin cambios de código. Útil para desarrollo local o migración gradual.</div></div>
+</section>
+
+<!-- ROLES -->
+<section class="sec" id="roles">
+  <div class="kk">Permisos</div>
+  <h2>Roles y qué puede hacer cada uno</h2>
+  <div class="tw">
+    <table>
+      <tr><th>Tool / Acción</th><th><span style="color:var(--blue)">reader</span></th><th><span style="color:var(--green)">writer</span></th><th><span style="color:var(--coral)">admin</span></th></tr>
+      <tr><td><code>get_context</code></td><td>✓</td><td>✓</td><td>✓</td></tr>
+      <tr><td><code>search_memory</code></td><td>✓</td><td>✓</td><td>✓</td></tr>
+      <tr><td><code>list_projects</code></td><td>✓</td><td>✓</td><td>✓</td></tr>
+      <tr><td><code>get_memory_stats</code></td><td>✓</td><td>✓</td><td>✓</td></tr>
+      <tr><td><code>compact_memory</code> dry_run</td><td>✓</td><td>✓</td><td>✓</td></tr>
+      <tr><td><code>save_memory</code></td><td>✗</td><td>✓</td><td>✓</td></tr>
+      <tr><td><code>update_memory</code></td><td>✗</td><td>✓</td><td>✓</td></tr>
+      <tr><td><code>compact_memory</code> real</td><td>✗</td><td>✗</td><td>✓</td></tr>
+      <tr><td><code>delete_memory</code></td><td>✗</td><td>✗</td><td>✓</td></tr>
+      <tr><td>Crear/listar invites</td><td>✗</td><td>✗</td><td>✓</td></tr>
+      <tr><td>Gestionar usuarios</td><td>✗</td><td>✗</td><td>✓</td></tr>
+    </table>
+  </div>
+  <div class="ca ca-n"><div>💡</div><div><strong>writer</strong> es el rol por defecto para usuarios nuevos. Se asigna en el invite token y puede cambiarse después con <code>PATCH /auth/users/:id/role</code>.</div></div>
+</section>
+
+<!-- ONBOARDING -->
+<section class="sec" id="onboarding">
+  <div class="kk">Flujos de instalación</div>
+  <h2>Onboarding transparente</h2>
+
+  <h3>Bootstrap — primer admin (una sola vez)</h3>
+  <pre><code># 1. Configurar en .env
+AUTH_ENABLED=true
+ADMIN_BOOTSTRAP_TOKEN=token-secreto-temporal
+
+# 2. Aplicar migración
+npm run db:migrate:003
+
+# 3. Crear el primer admin
+curl -X POST http://IP:3100/auth/bootstrap \
+  -H "Authorization: Bearer token-secreto-temporal" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "lucas", "device_name": "MacBook Lucas"}'
+# → guarda el token que devuelve — es tu API key</code></pre>
+
+  <div class="ca ca-w"><div>⚠️</div><div>El bootstrap solo funciona una vez — cuando no existe ningún usuario. Después de crear el primer admin, el <code>ADMIN_BOOTSTRAP_TOKEN</code> queda invalidado.</div></div>
+
+  <h3>Usuario nuevo — primer dispositivo</h3>
+  <pre><code># Admin genera invite (TUI → Admin → Crear invite, o endpoint)
+curl -X POST http://IP:3100/auth/invites \
+  -H "Authorization: Bearer sk-admin-..." \
+  -H "Content-Type: application/json" \
+  -d '{"role": "writer"}'
+# → { "token": "inv-abc123...", "usage": "npx ... install --invite inv-abc123" }
+
+# Admin comparte el invite por Slack/email
+# Usuario instala:
+npx github:tu-org/team-memory install --invite inv-abc123
+
+# El instalador pide username y device_name, muestra el token una sola vez:
+╔══════════════════════════════════════════════════════════════╗
+║  🔑 TU API KEY PERSONAL                                      ║
+║                                                              ║
+║  sk-writer-abc123xyz...                                      ║
+║                                                              ║
+║  ⚠  Guardá este token en un lugar seguro.                   ║
+║     Este mensaje no se va a volver a mostrar.                ║
+╚══════════════════════════════════════════════════════════════╝</code></pre>
+
+  <h3>Dispositivo extra o token perdido</h3>
+  <pre><code># Tiene el token anterior — dispositivo extra
+npx github:tu-org/team-memory install --token sk-writer-abc123
+
+# Perdió el token — admin genera uno nuevo
+curl -X POST http://IP:3100/auth/users/:id/token \
+  -H "Authorization: Bearer sk-admin-..."
+# → nuevo token para ese usuario, mismo rol</code></pre>
+</section>
+
+<!-- ENDPOINTS -->
+<section class="sec" id="endpoints">
+  <div class="kk">Auth REST</div>
+  <h2>Endpoints de autenticación</h2>
+  <p class="lead">Todos en el mismo puerto que el MCP (<code>http://IP:3100</code>). El endpoint <code>/mcp</code> requiere Bearer token cuando <code>AUTH_ENABLED=true</code>.</p>
+  <div class="tw">
+    <table>
+      <tr><th>Endpoint</th><th>Auth requerida</th><th>Descripción</th></tr>
+      <tr><td><code>POST /auth/bootstrap</code></td><td>Bootstrap token</td><td>Crea el primer admin (un solo uso)</td></tr>
+      <tr><td><code>POST /auth/register</code></td><td>Invite token</td><td>Registro de usuario nuevo</td></tr>
+      <tr><td><code>GET /auth/me</code></td><td>Bearer</td><td>Verificar token y obtener info del usuario</td></tr>
+      <tr><td><code>POST /auth/tokens/device</code></td><td>Bearer</td><td>Nuevo token para otro dispositivo</td></tr>
+      <tr><td><code>POST /auth/invites</code></td><td>Admin</td><td>Crear invite token (expira en 48hs)</td></tr>
+      <tr><td><code>GET /auth/invites</code></td><td>Admin</td><td>Listar invites activos</td></tr>
+      <tr><td><code>GET /auth/users</code></td><td>Admin</td><td>Listar usuarios con tokens activos</td></tr>
+      <tr><td><code>POST /auth/users/:id/token</code></td><td>Admin</td><td>Generar token para usuario existente</td></tr>
+      <tr><td><code>PATCH /auth/users/:id/role</code></td><td>Admin</td><td>Cambiar rol del usuario</td></tr>
+      <tr><td><code>DELETE /auth/tokens/:id</code></td><td>Admin</td><td>Revocar un token específico</td></tr>
+      <tr><td><code>DELETE /auth/users/:id</code></td><td>Admin</td><td>Revocar usuario + todos sus tokens</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- CONFIG FILE -->
+<section class="sec" id="config-file">
+  <div class="kk">Config por repositorio</div>
+  <h2>.team-memory.json</h2>
+  <p class="lead">Commiteado en el root del repo. Todos los miembros del equipo que clonan el repo lo heredan automáticamente.</p>
+  <div class="g2">
+    <div>
+      <h3>Repo de una sola capa</h3>
+      <pre><code>{
+  "project_slug": "admin-dashboard",
+  "default_area": "frontend"
+}</code></pre>
+    </div>
+    <div>
+      <h3>Repo fullstack</h3>
+      <pre><code>{
+  "project_slug": "ecommerce-platform",
+  "default_area": "general",
+  "area_map": {
+    "src/frontend/": "frontend",
+    "src/backend/":  "backend",
+    "docker/":       "infra"
+  }
+}</code></pre>
+    </div>
+  </div>
+  <div class="ca ca-t"><div>✅</div><div>Sin <code>.team-memory.json</code>, la TUI muestra un selector interactivo con todos los proyectos disponibles en el servidor — no falla ni sale con error.</div></div>
+</section>
+
+<!-- SLUG -->
+<section class="sec" id="slug">
+  <div class="kk">V3.2</div>
+  <h2>Resolución de project_slug — cascada</h2>
+  <div class="cascade">
+    <div class="cl-item"><div class="cl-num">A</div><div><div class="cl-title">Existe y tiene <code>project_slug</code></div><div class="cl-desc">Usar directamente. Informar la fuente al usuario.</div></div></div>
+    <div class="cl-item"><div class="cl-num">B</div><div><div class="cl-title">Existe pero sin <code>project_slug</code></div><div class="cl-desc">Flujo interactivo con candidatos detectados → actualizar el campo sin tocar otros.</div></div></div>
+    <div class="cl-item"><div class="cl-num">C</div><div><div class="cl-title">No existe</div><div class="cl-desc">Flujo interactivo → crear el archivo → recordar commitear.</div></div></div>
+    <div class="cl-item"><div class="cl-num">D</div><div><div class="cl-title">TUI sin slug resuelto</div><div class="cl-desc">Muestra selector interactivo con proyectos del servidor. Sin salir con error.</div></div></div>
+  </div>
+</section>
+
+<!-- AREA -->
+<section class="sec" id="area">
+  <div class="kk">V3.3</div>
+  <h2>Resolución de area — cascada de 4 niveles</h2>
+  <div class="cascade">
+    <div class="cl-item"><div class="cl-num">1</div><div><div class="cl-title"><code>area_map</code></div><div class="cl-desc">Prefijo de ruta más largo que coincide con el archivo activo.</div></div></div>
+    <div class="cl-item"><div class="cl-num">2</div><div><div class="cl-title"><code>default_area</code></div><div class="cl-desc">Área default del repo en <code>.team-memory.json</code>.</div></div></div>
+    <div class="cl-item"><div class="cl-num">3</div><div><div class="cl-title">Inferencia heurística</div><div class="cl-desc">Imports, extensiones de archivo, nombres de directorios.</div></div></div>
+    <div class="cl-item"><div class="cl-num">4</div><div><div class="cl-title">Preguntar</div><div class="cl-desc">Solo si los tres niveles anteriores fallan. Con tip de cómo evitarlo.</div></div></div>
+  </div>
+</section>
+
+<!-- INSTALLER -->
+<section class="sec" id="installer">
+  <div class="kk">Onboarding</div>
+  <h2>Instalador CLI</h2>
+  <pre><code># Primera instalación (con auth)
+npx github:tu-org/team-memory install --invite inv-abc123
+
+# Dispositivo extra (con token existente)
+npx github:tu-org/team-memory install --token sk-writer-abc123
+
+# Sin auth
+npx github:tu-org/team-memory install --url http://IP:3100/mcp
+
+# Solo una herramienta
+npx github:tu-org/team-memory install --only=claude --invite inv-abc123
+
+# Ver qué haría sin ejecutar
+npx github:tu-org/team-memory install --dry-run</code></pre>
+
+  <h3>Herramientas soportadas</h3>
+  <div class="tw">
+    <table>
+      <tr><th>Herramienta</th><th>Detección</th><th>Token en config</th></tr>
+      <tr><td><strong>Claude Code</strong></td><td><code>which claude</code></td><td><code>--header Authorization: Bearer</code> en el registro MCP</td></tr>
+      <tr><td><strong>VS Code + Copilot</strong></td><td><code>which code</code></td><td><code>headers.Authorization</code> en el payload JSON</td></tr>
+      <tr><td><strong>Copilot CLI</strong></td><td><code>~/.copilot/</code></td><td><code>mcpServers[].headers</code> en mcp-config.json</td></tr>
+      <tr><td><strong>Cursor</strong></td><td><code>~/.cursor/</code></td><td><code>mcpServers[].headers</code> en mcp.json</td></tr>
+      <tr><td><strong>OpenCode</strong></td><td><code>~/.config/opencode/</code></td><td><code>mcp[].headers</code> en opencode.json</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- INSTALL TUI -->
+<section class="sec" id="install-tui">
+  <div class="kk">V4.1</div>
+  <h2>Instalación de la TUI</h2>
+  <pre><code># Desde la raíz del repo clonado
+npm run install-tui
+# → instala deps, compila, crea ~/.local/bin/memory-tui
+
+# Equivalente
+node packages/installer/cli.mjs install-tui</code></pre>
+
+  <h3>Pasos que ejecuta</h3>
+  <div class="steps">
+    <div class="step"><div class="snum">1</div><div><h4>Verificar repo</h4><p>Busca <code>packages/tui/package.json</code>. Si no existe, muestra cómo clonar.</p></div></div>
+    <div class="step"><div class="snum">2</div><div><h4>npm install</h4><p>Instala dependencias en <code>packages/tui/node_modules/</code>.</p></div></div>
+    <div class="step"><div class="snum">3</div><div><h4>Compilar TypeScript</h4><p>Genera <code>packages/tui/dist/</code> con <code>tsc</code>.</p></div></div>
+    <div class="step"><div class="snum">4</div><div><h4>Crear comando global</h4><p>Escribe <code>~/.local/bin/memory-tui</code> con permisos 755. Avisa si no está en PATH.</p></div></div>
+  </div>
+</section>
+
+<!-- TUI -->
+<section class="sec" id="tui">
+  <div class="kk">V4 · V4.5 · V4.7 · V4.10</div>
+  <h2>memory-tui — Terminal UI</h2>
+  <p class="lead">Interfaz de terminal para gestionar la memoria sin pasar por un agente de IA. Comunicación HTTP al mismo servidor MCP. Autenticación via Bearer token.</p>
+  <div class="g2">
+    <div class="card">
+      <h4>Stack</h4>
+      <ul class="cl do">
+        <li>TypeScript + React + Ink 5</li>
+        <li>ink-select-input@6 + ink-text-input@6</li>
+        <li>tsx como runtime</li>
+        <li>setAuthToken() — token global en todos los requests MCP</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>7 pantallas</h4>
+      <ul class="cl do">
+        <li>Dashboard · Entradas · Búsqueda</li>
+        <li>Detalle + edición inline</li>
+        <li>Compactar (dry-run → confirm)</li>
+        <li>Admin (usuarios, invites, delete)</li>
+        <li>Selector de proyecto (sin .team-memory.json)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- TUI SCREENS -->
+<section class="sec" id="tui-screens">
+  <div class="kk">TUI · Pantallas</div>
+  <h2>Las 7 pantallas en detalle</h2>
+
+  <!-- Dashboard -->
+  <h3>Dashboard</h3>
+  <div class="tui-window">
+    <div class="tui-titlebar">
+      <div class="tui-dot" style="background:#ff5f56"></div>
+      <div class="tui-dot" style="background:#ffbd2e"></div>
+      <div class="tui-dot" style="background:#27c93f"></div>
+    </div>
+    <div class="tui-body">
+      <div class="tui-header">team-memory › <span style="color:#32d6bc">Dashboard</span>  ◉ ecommerce-platform  localhost:3100</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <div style="border:1px solid #2a3050;padding:5px 12px;border-radius:6px;text-align:center"><div class="tui-cyan" style="font-size:15px;font-weight:700">482</div><div class="tui-dim">Total</div></div>
+        <div style="border:1px solid #2a3050;padding:5px 12px;border-radius:6px;text-align:center"><div class="tui-green" style="font-size:15px;font-weight:700">421</div><div class="tui-dim">Activas</div></div>
+        <div style="border:1px solid #2a3050;padding:5px 12px;border-radius:6px;text-align:center"><div class="tui-yellow" style="font-size:15px;font-weight:700">12</div><div class="tui-dim">Compact</div></div>
+      </div>
+      <div class="tui-row tui-dim">⚙  Admin  Presioná <span style="background:#2a3050;padding:0 4px;border-radius:2px">A</span> para gestionar usuarios e invites</div>
+    </div>
+    <div class="tui-bar"><span><span class="tui-key">l</span> Entradas</span><span><span class="tui-key">s</span> Buscar</span><span><span class="tui-key">c</span> Compactar</span><span><span class="tui-key">a</span> Admin</span><span><span class="tui-key">q</span> Salir</span></div>
+  </div>
+
+  <!-- Admin -->
+  <h3>Admin <span class="badge new-badge" style="background:var(--cd);color:var(--coral)">solo admin</span></h3>
+  <div class="tui-window">
+    <div class="tui-titlebar">
+      <div class="tui-dot" style="background:#ff5f56"></div>
+      <div class="tui-dot" style="background:#ffbd2e"></div>
+      <div class="tui-dot" style="background:#27c93f"></div>
+    </div>
+    <div class="tui-body">
+      <div class="tui-header">team-memory › <span style="color:#ff8585">Admin</span></div>
+      <div style="border:1px solid #ff8585;border-radius:4px;padding:4px 8px;margin-bottom:8px;color:#ff8585">⚙  Panel de administración</div>
+      <div class="tui-row">❯ 👥  Gestionar usuarios</div>
+      <div class="tui-row">  📨  Crear invite token</div>
+      <div class="tui-row">  📋  Ver invites activos</div>
+      <div class="tui-row">  🗑️   Eliminar entrada</div>
+    </div>
+    <div class="tui-bar"><span><span class="tui-key">Esc</span> Volver</span><span><span class="tui-key">q</span> Salir</span></div>
+  </div>
+
+  <!-- Project Selector -->
+  <h3>Selector de proyecto <span class="badge new-badge" style="background:var(--gd);color:var(--green)">V4.10</span></h3>
+  <div class="tui-window">
+    <div class="tui-titlebar">
+      <div class="tui-dot" style="background:#ff5f56"></div>
+      <div class="tui-dot" style="background:#ffbd2e"></div>
+      <div class="tui-dot" style="background:#27c93f"></div>
+    </div>
+    <div class="tui-body">
+      <div class="tui-header">team-memory</div>
+      <div style="border:1px solid #32d6bc;border-radius:4px;padding:4px 8px;margin-bottom:8px;color:#32d6bc">Seleccioná un proyecto  <span class="tui-dim">(3 disponibles)</span></div>
+      <div class="tui-dim" style="margin-bottom:8px">No encontré .team-memory.json en el directorio actual.</div>
+      <div class="tui-row">❯ ecommerce-platform              482 entradas</div>
+      <div class="tui-row">  admin-dashboard                 231 entradas</div>
+      <div class="tui-row">  mobile-app                      118 entradas</div>
+      <div class="tui-dim" style="margin-top:8px">Para no ver este selector, agregá .team-memory.json al root del repo.</div>
+    </div>
+  </div>
+</section>
+
+<!-- TUI RUN -->
+<section class="sec" id="tui-run">
+  <div class="kk">TUI · Uso</div>
+  <h2>Cómo ejecutar</h2>
+  <pre><code># Comando global (después de install-tui)
+memory-tui --token sk-writer-abc123
+
+# Con variable de entorno
+export TEAM_MEMORY_TOKEN=sk-writer-abc123
+memory-tui
+
+# Sin auth (servidor con AUTH_ENABLED=false)
+memory-tui --url=http://localhost:3100/mcp
+
+# Desde el repo (desarrollo)
+npm run tui
+npm run tui -- --token=sk-writer-abc123</code></pre>
+
+  <h3>Al iniciar</h3>
+  <pre><code>team-memory TUI  v4
+
+  ✓ Servidor   http://10.0.0.5:3100/mcp  ← team-memory.config.json
+  ✓ Proyecto   ecommerce-platform         ← .team-memory.json
+  ✓ Conectado  http://10.0.0.5:3100/health
+  ✓ Usuario    lucas  (admin)
+  ✓ Modo admin (acceso completo)</code></pre>
+</section>
+
+<!-- TOOLS -->
+<section class="sec" id="tools">
+  <div class="kk">Interfaz MCP</div>
+  <h2>Las 8 tools</h2>
+  <div class="tw">
+    <table>
+      <tr><th>Tool</th><th>Rol mínimo</th><th>Descripción</th></tr>
+      <tr><td><code>get_context</code></td><td><span style="color:var(--blue)">reader</span></td><td>Contexto al inicio de sesión. SUMMARY y TASK_CONTEXT primero.</td></tr>
+      <tr><td><code>search_memory</code></td><td><span style="color:var(--blue)">reader</span></td><td>Búsqueda híbrida vectorial + FTS con RRF.</td></tr>
+      <tr><td><code>list_projects</code></td><td><span style="color:var(--blue)">reader</span></td><td>Lista proyectos. <code>include_stats: true</code> agrega breakdown.</td></tr>
+      <tr><td><code>get_memory_stats</code></td><td><span style="color:var(--blue)">reader</span></td><td>Health completo: accesos, autores, candidatos, duplicados.</td></tr>
+      <tr><td><code>save_memory</code></td><td><span style="color:var(--green)">writer</span></td><td>Persiste + deduplicación automática (exact title + RRF).</td></tr>
+      <tr><td><code>update_memory</code></td><td><span style="color:var(--green)">writer</span></td><td>append_content, add_tags, status. Regenera embedding si cambia el contenido.</td></tr>
+      <tr><td><code>compact_memory</code></td><td><span style="color:var(--blue)">reader</span> (dry) / <span style="color:var(--coral)">admin</span> (real)</td><td>Compacta entradas viejas en SUMMARYs. dry_run: true por defecto.</td></tr>
+      <tr><td><code>delete_memory</code></td><td><span style="color:var(--coral)">admin</span></td><td>Eliminación permanente. Requiere <code>confirm: true</code>. Irreversible.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- DEDUP -->
+<section class="sec" id="dedup">
+  <div class="kk">Calidad</div>
+  <h2>Deduplicación automática en save_memory</h2>
+  <div class="g2">
+    <div class="card"><h4>Paso A — Exact title match</h4><p>Normaliza (lowercase, trim). Score 1.0. Sin costo de embedding. Solo dentro del mismo project + area + type.</p></div>
+    <div class="card"><h4>Paso B — Near-duplicate RRF ≥ 0.030</h4><p>Genera embedding, corre vectorial + FTS, combina con RRF. Umbral conservador. Mismo scope.</p></div>
+  </div>
+  <pre style="margin-top:12px"><code>// Respuesta cuando hay duplicado
+{ "saved": false, "duplicate_detected": true,
+  "duplicate": { "id": "uuid", "title": "...", "content_preview": "...", "score": 1.0 },
+  "suggestion": "Use update_memory with entry_id..." }
+
+// El agente evalúa y decide:
+// score 1.0 → update_memory casi siempre
+// score ~0.030 → evaluar content_preview
+// force: true → insertar igual</code></pre>
+</section>
+
+<!-- TYPES -->
+<section class="sec" id="types">
+  <div class="kk">Clasificación</div>
+  <h2>Los 9 tipos de entrada</h2>
+  <div class="tw">
+    <table>
+      <tr><th>Tipo</th><th>Cuándo</th><th>Comportamiento especial</th></tr>
+      <tr><td><span class="badge" style="background:var(--cd);color:var(--coral)">SUMMARY</span></td><td>Resumen de sesión</td><td>Prioridad 1 en get_context. Excluido de search por defecto. No compactable.</td></tr>
+      <tr><td><span class="badge" style="background:var(--pd);color:var(--purple)">TASK_CONTEXT</span></td><td>Trabajo en progreso</td><td>Prioridad 2. Buscable. No compactable.</td></tr>
+      <tr><td><span class="badge" style="background:var(--bd);color:var(--blue)">DECISION</span></td><td>Elección técnica con razonamiento</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--s3);color:var(--muted)">REPOSITORY_NOTE</span></td><td>Estructura del repo</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--td);color:var(--teal)">PATTERN</span></td><td>Solución reutilizable</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--cd);color:var(--coral)">ANTI_PATTERN</span></td><td>Qué no hacer y por qué</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--ad);color:var(--amber)">INSIGHT</span></td><td>Aprendizaje no obvio</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--gd);color:var(--green)">FIX</span></td><td>Solución aplicada</td><td>—</td></tr>
+      <tr><td><span class="badge" style="background:var(--s3);color:var(--muted)">BUG</span></td><td>Problema documentado</td><td>—</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- AGENT FLOW -->
+<section class="sec" id="agent-flow">
+  <div class="kk">Protocolo del agente</div>
+  <h2>Flujo durante una sesión</h2>
+  <div class="steps">
+    <div class="step"><div class="snum">1</div><div><h4>Resolver project_slug</h4><p>Buscar <code>.team-memory.json</code> subiendo hasta <code>.git</code>. Si no existe → flujo interactivo.</p></div></div>
+    <div class="step"><div class="snum">2</div><div><h4>Bootstrap — get_context</h4><p>Antes de la primera respuesta sustancial. SUMMARY y TASK_CONTEXT llegan primero.</p></div></div>
+    <div class="step"><div class="snum">3</div><div><h4>Buscar antes de responder</h4><p><code>search_memory</code> antes de preguntas técnicas. Si hay ANTI_PATTERN relevante, advertir proactivamente.</p></div></div>
+    <div class="step"><div class="snum">4</div><div><h4>Resolver area</h4><p>Cascada: area_map → default_area → heurística → preguntar. Informar la fuente.</p></div></div>
+    <div class="step"><div class="snum">5</div><div><h4>save_memory → manejar duplicate</h4><p>Si <code>duplicate_detected: true</code> → evaluar y decidir entre update o force.</p></div></div>
+    <div class="step"><div class="snum">6</div><div><h4>Error 403</h4><p>Informar que la operación requiere un rol superior. No reintentar.</p></div></div>
+    <div class="step"><div class="snum">7</div><div><h4>Consolidar al cerrar</h4><p>SUMMARY si la sesión fue significativa. TASK_CONTEXT para lo pendiente.</p></div></div>
+  </div>
+  <div class="ca ca-w"><div>⚠️</div><div><code>compact_memory</code> y <code>delete_memory</code> solo a pedido explícito. Nunca de forma autónoma. Siempre con dry_run primero para compact.</div></div>
+</section>
+
+<!-- PATCHES -->
+<section class="sec" id="patches">
+  <div class="kk">Historial V4.x</div>
+  <h2>Patches de la serie V4</h2>
+  <div class="ph">
+    <div class="ph-item"><div class="ph-v" style="background:var(--gd);color:var(--green)">V4</div><div><div class="ph-title">Full release — Terminal UI Phase 1</div><div class="ph-desc">packages/tui con 5 pantallas (Dashboard, Entradas, Búsqueda, Detalle, Compact), Ink 5, comunicación HTTP al servidor MCP.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--s3);color:var(--muted)">V4.1</div><div><div class="ph-title">Fix: subcomando install-tui en cli.mjs</div><div class="ph-desc">V4 incluía la TUI pero cli.mjs no tenía el router install-tui ni la función installTui().</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--s3);color:var(--muted)">V4.2</div><div><div class="ph-title">npm run tui + .team-memory.json ejemplo</div><div class="ph-desc">Script tui en el root package.json. .team-memory.json commiteado en el propio repo de team-memory.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--s3);color:var(--muted)">V4.3</div><div><div class="ph-title">.gitignore completo + README actualizado</div><div class="ph-desc">.env.local/.env.prod, packages/*/dist/, *.bak-*. README reescritura completa para V4.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--s3);color:var(--muted)">V4.4</div><div><div class="ph-title">Mensaje de bienvenida TUI con fuentes</div><div class="ph-desc">index.tsx muestra de dónde vino cada parámetro (URL, proyecto, auth). Spinner mientras conecta.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--ad);color:var(--amber)">V4.5</div><div><div class="ph-title">Auth completa</div><div class="ph-desc">003_auth.sql (3 tablas), middleware auth.ts, routes/auth.ts (11 endpoints), delete_memory tool, install.mjs con flujo --invite/--token, banner de API key, pantalla Admin en TUI.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--s3);color:var(--muted)">V4.6</div><div><div class="ph-title">npm run db:migrate:003</div><div class="ph-desc">Script en el root package.json para aplicar la migración de auth, consistente con 001 y 002.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--s3);color:var(--muted)">V4.7</div><div><div class="ph-title">delete_memory desde la TUI Admin</div><div class="ph-desc">Flujo: buscar entrada → seleccionar → confirmar → eliminar. setAuthToken() en client.ts para todos los requests MCP.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--s3);color:var(--muted)">V4.8</div><div><div class="ph-title">Protocolos actualizados para auth</div><div class="ph-desc">protocol-short.md y protocol-skill.md con tabla de roles, sección de auth, delete_memory, manejo de 403.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--s3);color:var(--muted)">V4.9</div><div><div class="ph-title">Scripts de testing con auth</div><div class="ph-desc">seed.mjs crea 6 usuarios de prueba con tokens. test-system.mjs Test 9: bootstrap, invites, register, permisos por rol, tokens inválidos.</div></div></div>
+    <div class="ph-item"><div class="ph-v" style="background:var(--gd);color:var(--green)">V4.10</div><div><div class="ph-title">Selector de proyecto en la TUI</div><div class="ph-desc">Sin .team-memory.json la TUI muestra selector interactivo con proyectos del servidor en vez de salir con error. apiListProjects en client.ts.</div></div></div>
+  </div>
+</section>
+
+<!-- STACK -->
+<section class="sec" id="stack">
+  <div class="kk">Tecnología</div>
+  <h2>Stack técnico</h2>
+  <div class="tw">
+    <table>
+      <tr><th>Capa</th><th>Tecnología</th><th>Razón</th></tr>
+      <tr><td><span class="badge" style="background:var(--pd);color:var(--purple)">MCP</span></td><td>@modelcontextprotocol/sdk 1.10.2</td><td>SDK oficial. Streamable HTTP, stateless.</td></tr>
+      <tr><td><span class="badge" style="background:var(--td);color:var(--teal)">Runtime</span></td><td>Node.js 22 + TypeScript</td><td>Stack del equipo. NodeNext module resolution.</td></tr>
+      <tr><td><span class="badge" style="background:var(--bd);color:var(--blue)">DB</span></td><td>PostgreSQL 16 + pgvector</td><td>Relacional + vectorial. Sin vector DB separado.</td></tr>
+      <tr><td><span class="badge" style="background:var(--ad);color:var(--amber)">Embeddings</span></td><td>Ollama + nomic-embed-text</td><td>Local, sin API keys, 768 dimensiones.</td></tr>
+      <tr><td><span class="badge" style="background:var(--s3);color:var(--muted)">Auth</span></td><td>Bearer tokens + bcrypt</td><td>Roles reader/writer/admin. Invite tokens de un solo uso. Toggle por env var.</td></tr>
+      <tr><td><span class="badge" style="background:var(--gd);color:var(--green)">Infra</span></td><td>Docker Compose</td><td>Un comando en local y en producción.</td></tr>
+      <tr><td><span class="badge" style="background:var(--pkd);color:var(--pink)">TUI</span></td><td>Ink 5 + tsx</td><td>React para terminal. tsx como runtime. setAuthToken() para requests auth.</td></tr>
+      <tr><td><span class="badge" style="background:var(--s3);color:var(--muted)">Installer</span></td><td>Node.js puro</td><td>Cero dependencias. Flujo --invite/--token con banner de API key.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- EVAL -->
+<section class="sec" id="eval">
+  <div class="kk">Evaluación</div>
+  <h2>Puntos fuertes y pendientes</h2>
+  <div class="g2">
+    <div>
+      <h3 style="color:var(--green);font-size:15px;margin-bottom:12px">✓ Puntos fuertes</h3>
+      <ul class="cl ch">
+        <li>Auth transparente — token en cada request sin intervención</li>
+        <li>Invite tokens de un solo uso — onboarding seguro</li>
+        <li>roles reader/writer/admin con permisos granulares</li>
+        <li>delete_memory protegido desde la TUI y desde el agente</li>
+        <li>Selector de proyecto en TUI — sin .team-memory.json no es error</li>
+        <li>Scripts de testing con cobertura de auth</li>
+        <li>Protocolos actualizados con manejo de 403</li>
+        <li>AUTH_ENABLED toggle sin cambios de código</li>
+        <li>100% on-premise — embeddings y generación locales</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="color:var(--amber);font-size:15px;margin-bottom:12px">⚠ Pendiente</h3>
+      <ul class="cl wa">
+        <li>Auth sin probar en producción todavía</li>
+        <li>Sin passphrase recovery — admin como fallback</li>
+        <li>Sin OAuth/SSO (deferred explícitamente)</li>
+        <li>Bun compile a binario standalone (TUI Phase 2)</li>
+        <li>Sin historial de ediciones en update_memory</li>
+        <li>Dedup solo dentro de project + area + type</li>
+        <li>Cursor requiere paso manual en User Rules</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section class="sec" id="roadmap">
+  <div class="kk">Próximos pasos</div>
+  <h2>Roadmap</h2>
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);margin-bottom:12px">Inmediato</div>
+    <ul class="cl do">
+      <li>Probar auth en producción con el servidor compartido del equipo</li>
+      <li>Bun compile — binario standalone de la TUI sin Node.js visible</li>
+    </ul>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:12px">Mediano plazo</div>
+    <ul class="cl do">
+      <li>Historial de ediciones en update_memory — quién cambió qué y cuándo</li>
+      <li>OAuth/SSO — delegar identidad a GitHub u otro proveedor (elimina el problema de token perdido)</li>
+      <li>HTML de estado del sistema — actualización automática con cada release</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:12px">Largo plazo</div>
+    <ul class="cl do">
+      <li>Multi-tenant — organizaciones con aislamiento completo entre equipos</li>
+      <li>Dashboard web — métricas, gestión de proyectos, TASK_CONTEXT pendientes</li>
+      <li>Migración del memory agent del orquestador multi-agente → team-memory como backend</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div class="fl">team-memory v4.10 · 8 tools · Auth reader/writer/admin · Node.js 22 · PostgreSQL 16 + pgvector · Ink 5</div>
+  <div class="fr">
+    <span class="badge" style="background:var(--gd);color:var(--green)">8 tools</span>
+    <span class="badge" style="background:var(--ad);color:var(--amber)">auth V4.5</span>
+    <span class="badge" style="background:var(--td);color:var(--teal)">on-premise</span>
+    <span class="badge" style="background:var(--bd);color:var(--blue)">5 clientes IA</span>
+    <span class="badge" style="background:var(--pkd);color:var(--pink)">TUI 7 pantallas</span>
+  </div>
+</footer>
+</main>
+</div>
+
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');let nd=[];
+function rs(){cv.width=cv.offsetWidth;cv.height=cv.offsetHeight}
+function ni(){nd=[];const n=Math.floor(cv.width*cv.height/14000);for(let i=0;i<n;i++)nd.push({x:Math.random()*cv.width,y:Math.random()*cv.height,vx:(Math.random()-.5)*.28,vy:(Math.random()-.5)*.28,r:Math.random()*1.8+1,p:Math.random()*Math.PI*2})}
+function dr(){ctx.clearRect(0,0,cv.width,cv.height);const D=95;for(let i=0;i<nd.length;i++){const a=nd[i];a.x+=a.vx;a.y+=a.vy;a.p+=.02;if(a.x<0||a.x>cv.width)a.vx*=-1;if(a.y<0||a.y>cv.height)a.vy*=-1;for(let j=i+1;j<nd.length;j++){const b=nd[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.sqrt(dx*dx+dy*dy);if(d<D){ctx.beginPath();ctx.strokeStyle=`rgba(155,138,251,${(1-d/D)*.12})`;ctx.lineWidth=.5;ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}}const op=.28+(Math.sin(a.p)+1)/2*.38;ctx.beginPath();ctx.arc(a.x,a.y,a.r,0,Math.PI*2);ctx.fillStyle=`rgba(155,138,251,${op})`;ctx.fill()}requestAnimationFrame(dr)}
+rs();ni();dr();window.addEventListener('resize',()=>{rs();ni()});
+const ss=document.querySelectorAll('section[id],.hero'),ll=document.querySelectorAll('.nl');
+ss.forEach(s=>new IntersectionObserver(ee=>{ee.forEach(e=>{if(e.isIntersecting){ll.forEach(l=>l.classList.remove('on'));const a=document.querySelector(`.nl[href="#${e.target.id}"]`);if(a)a.classList.add('on')}})},{threshold:.2}).observe(s));
+</script>
+</body>
+</html>
