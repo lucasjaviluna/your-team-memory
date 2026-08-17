@@ -327,9 +327,18 @@ function registerClaudeMcp(url, apiToken = null) {
       action: `would run: claude mcp add --transport http --scope user ${SERVER_NAME} ${url}${apiToken ? " (+ auth header)" : ""}`,
     };
 
-  const addArgs = ["mcp", "add", "--transport", "http", "--scope", "user"];
+  const addArgs = [
+    "mcp",
+    "add",
+    "--transport",
+    "http",
+    SERVER_NAME,
+    url,
+    "--scope",
+    "user",
+  ];
+
   if (apiToken) addArgs.push("--header", `Authorization: Bearer ${apiToken}`);
-  addArgs.push(SERVER_NAME, url);
   execFileSync("claude", addArgs, { stdio: "pipe" });
   return { action: "registered" };
 }
