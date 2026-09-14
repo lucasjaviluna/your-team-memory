@@ -101,7 +101,9 @@ export async function apiSearchMemory(url: string, args: {
 export async function apiUpdateMemory(url: string, args: {
   entry_id: string; append_content?: string; add_tags?: string[]; status?: Status
 }): Promise<MemoryEntry> {
-  return call<MemoryEntry>(url, 'update_memory', args)
+  const result = await call<{ entry?: MemoryEntry }>(url, 'update_memory', args)
+  if (!result.entry) throw new Error('update_memory returned no updated entry')
+  return result.entry
 }
 
 export async function apiCompactMemory(url: string, args: {

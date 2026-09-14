@@ -13,7 +13,9 @@ export interface AuthContext {
 
 declare global {
   namespace Express {
-    interface Request { auth?: AuthContext }
+    // Keep Team Memory identity separate from the MCP SDK's reserved `auth`
+    // field, which is used internally by StreamableHTTPServerTransport.
+    interface Request { teamMemoryAuth?: AuthContext }
   }
 }
 
@@ -53,7 +55,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     if (result.rows.length === 0) { res.status(401).json({ error: 'Invalid or revoked token.' }); return }
     const ctx = result.rows[0]
     pool.query('UPDATE api_tokens SET last_used = now() WHERE id = $1', [ctx.token_id]).catch(() => {})
-    req.auth = ctx
+    req.teamMemoryAuth = ctx
     next()
   } catch (err) {
     console.error('[auth] Error:', err)
@@ -64,9 +66,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 export function requireRole(minRole: Role) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (process.env.AUTH_ENABLED !== 'true') { next(); return }
-    if (!req.auth) { res.status(401).json({ error: 'Not authenticated' }); return }
-    if (!hasPermission(req.auth.role, minRole)) {
-      res.status(403).json({ error: `Forbidden. Required: ${minRole}. Your role: ${req.auth.role}` }); return
+    if (!req.teamMemoryAuth) { res.status(401).json({ error: 'Not authenticated' }); return }
+    if (!hasPermission(req.teamMemoryAuth.role, minRole)) {
+      res.status(403).json({ error: `Forbidden. Required: ${minRole}. Your role: ${req.teamMemoryAuth.role}` }); return
     }
     next()
   }

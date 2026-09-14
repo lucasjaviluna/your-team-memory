@@ -7,7 +7,9 @@
     "team-memory": "packages/installer/cli.mjs"
   },
   "workspaces": [
-    "packages/installer"
+    "packages/installer",
+    "packages/server",
+    "packages/tui"
   ],
   "scripts": {
     "build": "npm run build --prefix packages/server",

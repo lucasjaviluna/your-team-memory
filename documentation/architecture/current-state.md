@@ -51,13 +51,11 @@ Instalador ---- configura clientes MCP + protocolo de uso
 
 ## Estado y riesgos conocidos
 
-- El servidor no compila por la colisión del campo `auth` entre Express y MCP SDK.
-- El contrato de respuesta de `update_memory` no coincide con lo esperado por la TUI.
 - La identidad autenticada no llega al contexto de ejecución de las tools.
 - El ranking no tiene umbral de relevancia ni corpus de evaluación.
 - Los límites de tamaño, timeouts y fallos parciales requieren una política común.
-- La configuración monorepo no representa correctamente todos los paquetes.
+- El servidor y la TUI ya comparten un contrato de edición mínimo; aún duplican tipos
+  y conviene extraer un módulo de contratos común.
 
 Docker, CI/CD y producción conservan deuda conocida, pero quedan fuera de la ruta
 crítica inmediata salvo que bloqueen la verificación local.
-

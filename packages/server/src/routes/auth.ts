@@ -61,15 +61,15 @@ authRouter.post('/register', async (req: Request, res: Response) => {
 
 // GET /auth/me
 authRouter.get('/me', requireAuth, (req: Request, res: Response) => {
-  res.json({ success: true, user: { id: req.auth!.user_id, username: req.auth!.username, role: req.auth!.role, device_name: req.auth!.device_name } })
+  res.json({ success: true, user: { id: req.teamMemoryAuth!.user_id, username: req.teamMemoryAuth!.username, role: req.teamMemoryAuth!.role, device_name: req.teamMemoryAuth!.device_name } })
 })
 
 // POST /auth/tokens/device — nuevo token para otro dispositivo
 authRouter.post('/tokens/device', requireAuth, async (req: Request, res: Response) => {
   const { device_name } = req.body as { device_name?: string }
-  const token = generateToken(`sk-${req.auth!.role}`)
+  const token = generateToken(`sk-${req.teamMemoryAuth!.role}`)
   const devName = device_name ?? 'unknown device'
-  await pool.query(`INSERT INTO api_tokens (token, user_id, device_name) VALUES ($1, $2, $3)`, [token, req.auth!.user_id, devName])
+  await pool.query(`INSERT INTO api_tokens (token, user_id, device_name) VALUES ($1, $2, $3)`, [token, req.teamMemoryAuth!.user_id, devName])
   res.json({ success: true, token, device_name: devName })
 })
 
@@ -79,7 +79,7 @@ authRouter.post('/invites', requireAuth, requireRole('admin'), async (req: Reque
   if (!['reader','writer','admin'].includes(role)) return void res.status(400).json({ error: `Invalid role: ${role}` })
   const token = generateInvite()
   const expiresAt = new Date(Date.now() + expires_in_hours * 3600 * 1000)
-  await pool.query(`INSERT INTO invite_tokens (token, role, created_by, expires_at) VALUES ($1, $2, $3, $4)`, [token, role, req.auth!.user_id, expiresAt])
+  await pool.query(`INSERT INTO invite_tokens (token, role, created_by, expires_at) VALUES ($1, $2, $3, $4)`, [token, role, req.teamMemoryAuth!.user_id, expiresAt])
   res.json({ success: true, token, role, expires_at: expiresAt.toISOString(), usage: `npx github:tu-org/team-memory install --invite ${token}` })
 })
 

@@ -16,9 +16,9 @@ un cliente del contrato público MCP y de las rutas administrativas HTTP.
 
 ## Riesgos actuales
 
-- El tipo esperado para `update_memory` no coincide con la respuesta real.
+- El contrato de `update_memory` ya devuelve la entrada actualizada y la TUI valida
+  su presencia; los tipos aún están duplicados entre paquetes.
 - Los tipos del cliente duplican contratos del servidor y pueden divergir.
-- El proyecto no participa plenamente del build/typecheck del monorepo.
 - El concepto standalone aún no distingue formalmente servicio local y cliente remoto.
 
 ## Dirección
@@ -27,4 +27,3 @@ Definir un núcleo cliente compartido y dos perfiles explícitos:
 
 - standalone local: dependencias locales, arranque y diagnóstico guiado;
 - cliente compartido: solo URL, identidad y proyecto.
-

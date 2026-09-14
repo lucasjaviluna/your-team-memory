@@ -18,9 +18,10 @@ control de permisos previo a una llamada de tool.
 
 ## Riesgos actuales
 
-- Colisión de tipos y significado sobre `Request.auth`.
+- La identidad propia ya está aislada en `teamMemoryAuth`, pero todavía no se inyecta
+  en el contexto de ejecución de cada tool.
 - Registro repetitivo de handlers y serialización manual de respuestas.
-- Falta un contexto de ejecución que lleve identidad y datos de request a las tools.
+- Falta un contexto de ejecución formal que lleve identidad y datos de request a las tools.
 - No hay catálogo automatizado de contratos para verificar clientes.
 
 ## Pruebas necesarias
@@ -29,4 +30,3 @@ control de permisos previo a una llamada de tool.
 - Inicialización y llamada stateless por HTTP.
 - Traducción uniforme de éxito y error.
 - Matriz de autorización por tool y rol.
-

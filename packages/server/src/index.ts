@@ -110,6 +110,7 @@ SUMMARY and TASK_CONTEXT are excluded from the duplicate check — they are accu
               text: JSON.stringify({
                 success: true,
                 id: entry.id,
+                entry,
                 message: `Memory updated: "${entry.title}" [${entry.type}]`,
               }),
             },
@@ -401,7 +402,7 @@ async function startStreamableHTTP() {
     const clientIp = req.headers["x-forwarded-for"] ?? req.socket.remoteAddress;
 
     // Verificar permisos de la tool si hay auth activa
-    if (authEnabled && req.auth) {
+    if (authEnabled && req.teamMemoryAuth) {
       const body = req.body as {
         params?: { name?: string; arguments?: Record<string, unknown> };
       };
@@ -412,7 +413,7 @@ async function startStreamableHTTP() {
         const { allowed, reason } = checkToolPermission(
           toolName,
           toolArgs,
-          req.auth.role,
+          req.teamMemoryAuth.role,
         );
         if (!allowed) {
           res.status(403).json({
@@ -437,7 +438,10 @@ async function startStreamableHTTP() {
       });
 
       await server.connect(transport);
-      await transport.handleRequest(req, res, req.body);
+      // Express's Request is structurally compatible with IncomingMessage at
+      // runtime. The MCP SDK's `auth` field has a different contract, so the
+      // Team Memory identity deliberately lives on `teamMemoryAuth` above.
+      await transport.handleRequest(req as never, res as never, req.body);
     } catch (err) {
       console.error(`[team-memory] ✗ /mcp error  ip:${clientIp}`, err);
       if (!res.headersSent) {
