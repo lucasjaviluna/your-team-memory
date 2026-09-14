@@ -4,10 +4,11 @@ import { logAccess } from '../db/access-log.js'
 import { generateEmbedding } from '../embeddings/ollama.js'
 import { SEARCH_EXCLUDED_TYPES } from '../types/index.js'
 import type { SearchResult } from '../types/index.js'
+import { INPUT_LIMITS } from '../types/index.js'
 
 export const SearchMemorySchema = z.object({
-  query: z.string().min(2).describe('Natural language search query'),
-  project_slug: z.string().optional().describe('Filter by project slug'),
+  query: z.string().trim().min(2).max(INPUT_LIMITS.QUERY).describe('Natural language search query'),
+  project_slug: z.string().trim().min(1).max(INPUT_LIMITS.PROJECT_SLUG).optional().describe('Filter by project slug'),
   area: z.enum(['frontend', 'backend', 'infra', 'general']).optional(),
   type: z.enum([
     'BUG', 'FIX', 'DECISION', 'INSIGHT', 'PATTERN',

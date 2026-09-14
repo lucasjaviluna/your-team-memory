@@ -1,6 +1,14 @@
 const OLLAMA_URL        = process.env.OLLAMA_URL         ?? 'http://localhost:11434'
 const EMBED_MODEL       = process.env.OLLAMA_EMBED_MODEL ?? 'nomic-embed-text'
 const CHAT_MODEL        = process.env.OLLAMA_CHAT_MODEL  ?? 'llama3'
+const REQUEST_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS ?? 30_000)
+
+async function ollamaFetch(path: string, init: RequestInit): Promise<Response> {
+  return fetch(`${OLLAMA_URL}${path}`, {
+    ...init,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  })
+}
 
 // ── Embeddings ────────────────────────────────────────────────────────────────
 
@@ -9,7 +17,7 @@ interface OllamaEmbedResponse {
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await fetch(`${OLLAMA_URL}/api/embeddings`, {
+  const response = await ollamaFetch('/api/embeddings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: EMBED_MODEL, prompt: text }),
@@ -19,6 +27,10 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     throw new Error(`Ollama embedding failed (${response.status}): ${error}`)
   }
   const data = (await response.json()) as OllamaEmbedResponse
+  if (!Array.isArray(data.embedding) || data.embedding.length === 0 ||
+      data.embedding.some((value) => !Number.isFinite(value))) {
+    throw new Error('Ollama embedding returned an invalid vector')
+  }
   return data.embedding
 }
 
@@ -39,7 +51,7 @@ interface OllamaGenerateResponse {
  * Usado exclusivamente por compact_memory para generar SUMMARYs.
  */
 export async function generateText(prompt: string): Promise<string> {
-  const response = await fetch(`${OLLAMA_URL}/api/generate`, {
+  const response = await ollamaFetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -57,12 +69,15 @@ export async function generateText(prompt: string): Promise<string> {
     throw new Error(`Ollama generate failed (${response.status}): ${error}`)
   }
   const data = (await response.json()) as OllamaGenerateResponse
+  if (typeof data.response !== 'string' || data.response.trim().length === 0) {
+    throw new Error('Ollama generate returned an empty response')
+  }
   return data.response.trim()
 }
 
 export async function checkOllamaConnection(): Promise<boolean> {
   try {
-    const res = await fetch(`${OLLAMA_URL}/api/tags`)
+    const res = await ollamaFetch('/api/tags', { method: 'GET' })
     return res.ok
   } catch {
     return false
@@ -75,7 +90,7 @@ export async function checkOllamaConnection(): Promise<boolean> {
  */
 export async function checkChatModel(): Promise<boolean> {
   try {
-    const res = await fetch(`${OLLAMA_URL}/api/tags`)
+    const res = await ollamaFetch('/api/tags', { method: 'GET' })
     if (!res.ok) return false
     const data = await res.json() as { models: Array<{ name: string }> }
     return data.models.some((m) => m.name.startsWith(CHAT_MODEL))

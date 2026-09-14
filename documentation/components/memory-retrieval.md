@@ -45,3 +45,7 @@ conocimiento.
 - Conservación de hechos durante compactación.
 - Fallos y timeouts del proveedor de embeddings.
 
+## Límites incorporados
+
+Los schemas de entrada limitan tamaño de query, slug, título, contenido y tags. Las
+llamadas a Ollama tienen timeout configurable y validan la forma básica de la respuesta.

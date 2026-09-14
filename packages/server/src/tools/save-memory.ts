@@ -3,9 +3,10 @@ import { query, queryOne } from '../db/client.js'
 import { generateEmbedding, buildEmbeddingText } from '../embeddings/ollama.js'
 import { findNearDuplicate } from './find-near-duplicate.js'
 import type { MemoryEntry, Project, SaveMemoryResult } from '../types/index.js'
+import { INPUT_LIMITS } from '../types/index.js'
 
 export const SaveMemorySchema = z.object({
-  project_slug: z.string().describe('Project identifier slug (e.g. "ecommerce-app")'),
+  project_slug: z.string().trim().min(1).max(INPUT_LIMITS.PROJECT_SLUG).describe('Project identifier slug (e.g. "ecommerce-app")'),
   area: z.enum(['frontend', 'backend', 'infra', 'general']),
   type: z.enum([
     'BUG',
@@ -28,10 +29,10 @@ export const SaveMemorySchema = z.object({
     TASK_CONTEXT   → Work in progress context (e.g. "React 19 migration is pending")
     SUMMARY        → End-of-session compaction, loaded first in every new session
   `),
-  title: z.string().min(3).describe('Short descriptive title for this memory entry'),
-  content: z.string().min(10).describe('Full content of the memory entry'),
-  tags: z.array(z.string()).optional().default([]),
-  author: z.string().describe('Dev username or identifier'),
+  title: z.string().trim().min(3).max(INPUT_LIMITS.TITLE).describe('Short descriptive title for this memory entry'),
+  content: z.string().min(10).max(INPUT_LIMITS.CONTENT).describe('Full content of the memory entry'),
+  tags: z.array(z.string().trim().min(1).max(INPUT_LIMITS.TAG)).max(INPUT_LIMITS.TAGS).optional().default([]),
+  author: z.string().trim().min(1).max(INPUT_LIMITS.AUTHOR).describe('Dev username or identifier'),
   force: z.boolean().optional().default(false).describe(
     'Skip duplicate check and insert regardless. Use only when the agent has confirmed ' +
     'the new entry is genuinely different from the near-duplicate returned in a previous call.'

@@ -2,23 +2,24 @@ import { z } from 'zod'
 import { query, queryOne } from '../db/client.js'
 import { generateEmbedding, buildEmbeddingText } from '../embeddings/ollama.js'
 import type { MemoryEntry } from '../types/index.js'
+import { INPUT_LIMITS } from '../types/index.js'
 
 export const UpdateMemorySchema = z.object({
   entry_id: z.string().uuid().describe('UUID of the entry to update'),
 
-  content: z.string().min(10).optional()
+  content: z.string().min(10).max(INPUT_LIMITS.CONTENT).optional()
     .describe('Replace the entire content with this text.'),
 
-  append_content: z.string().min(3).optional()
+  append_content: z.string().min(3).max(INPUT_LIMITS.CONTENT).optional()
     .describe('Append this text to the end of the existing content (e.g. adding a warning or updating "last observed"). Mutually exclusive with content.'),
 
-  title: z.string().min(3).optional()
+  title: z.string().trim().min(3).max(INPUT_LIMITS.TITLE).optional()
     .describe('Replace the title.'),
 
-  tags: z.array(z.string()).optional()
+  tags: z.array(z.string().trim().min(1).max(INPUT_LIMITS.TAG)).max(INPUT_LIMITS.TAGS).optional()
     .describe('Replace the entire tags array.'),
 
-  add_tags: z.array(z.string()).optional()
+  add_tags: z.array(z.string().trim().min(1).max(INPUT_LIMITS.TAG)).max(INPUT_LIMITS.TAGS).optional()
     .describe('Add these tags to the existing ones without removing current tags. Mutually exclusive with tags.'),
 
   status: z.enum(['active', 'deprecated', 'review_needed']).optional()

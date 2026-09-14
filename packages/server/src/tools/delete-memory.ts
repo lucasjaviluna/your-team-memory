@@ -1,5 +1,5 @@
 import { z }               from 'zod'
-import { query, queryOne } from '../db/client.js'
+import { pool, queryOne } from '../db/client.js'
 import type { MemoryEntry } from '../types/index.js'
 
 export const DeleteMemorySchema = z.object({
@@ -12,7 +12,17 @@ export type DeleteMemoryInput = z.infer<typeof DeleteMemorySchema>
 export async function deleteMemory(input: DeleteMemoryInput) {
   const entry = await queryOne<MemoryEntry>('SELECT id, title, type FROM memory_entries WHERE id = $1', [input.entry_id])
   if (!entry) throw new Error(`Entry not found: ${input.entry_id}`)
-  await query('DELETE FROM memory_access_log WHERE entry_id = $1', [input.entry_id])
-  await query('DELETE FROM memory_entries WHERE id = $1', [input.entry_id])
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query('DELETE FROM memory_access_log WHERE entry_id = $1', [input.entry_id])
+    await client.query('DELETE FROM memory_entries WHERE id = $1', [input.entry_id])
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw err
+  } finally {
+    client.release()
+  }
   return { deleted: true, entry_id: input.entry_id, title: entry.title, type: entry.type }
 }

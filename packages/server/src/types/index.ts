@@ -30,6 +30,17 @@ export const COMPACTION_DEFAULTS = {
   MAX_ENTRIES_PER_SUMMARY: 30,
 }
 
+// Límites de producto para evitar entradas y prompts que degraden el servicio.
+export const INPUT_LIMITS = {
+  PROJECT_SLUG: 120,
+  QUERY: 2000,
+  TITLE: 240,
+  CONTENT: 100_000,
+  AUTHOR: 120,
+  TAGS: 20,
+  TAG: 80,
+} as const
+
 // ── Deduplicación ─────────────────────────────────────────────────────────────
 
 // Score RRF mínimo para considerar una entrada como near-duplicate.

@@ -25,9 +25,8 @@ FTS aporta coincidencia textual.
 
 ## Riesgos actuales
 
-- Algunas operaciones relacionadas usan queries separadas y requieren revisar
-  atomicidad.
+- `delete_memory` agrupa la eliminación de accesos y entrada en una transacción;
+  compactación y carreras de deduplicación aún requieren revisión.
 - La dimensión `vector(768)` depende del modelo sin metadata de versión.
 - Tokens reutilizables están almacenados en texto plano.
 - No hay mecanismo interno de versión de schema consultable por la aplicación.
-

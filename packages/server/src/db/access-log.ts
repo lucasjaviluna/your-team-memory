@@ -1,4 +1,5 @@
 import { pool } from './client.js'
+import type { PoolClient } from 'pg'
 
 export type AccessTool = 'search_memory' | 'get_context'
 
@@ -21,8 +22,9 @@ export function logAccess(entryIds: string[], context: AccessTool | AccessContex
     : context
 
   setImmediate(async () => {
-    const client = await pool.connect()
+    let client: PoolClient | undefined
     try {
+      client = await pool.connect()
       await client.query('BEGIN')
 
       // INSERT multi-row con author y user_id (nullable)
@@ -46,10 +48,10 @@ export function logAccess(entryIds: string[], context: AccessTool | AccessContex
 
       await client.query('COMMIT')
     } catch (err) {
-      await client.query('ROLLBACK')
+      if (client) await client.query('ROLLBACK').catch(() => {})
       console.error('[access-log] Error registering access:', err)
     } finally {
-      client.release()
+      client?.release()
     }
   })
 }

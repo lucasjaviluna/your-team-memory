@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "build": "npm run build --prefix packages/server",
+    "test:server": "npm test --prefix packages/server",
     "dev": "npm run dev   --prefix packages/server",
     "server:install": "npm install   --prefix packages/server",
     "install-tui": "node packages/installer/cli.mjs install-tui",
