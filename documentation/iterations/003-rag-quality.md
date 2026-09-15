@@ -22,6 +22,8 @@ con datos reales.
 
 - `npm run test:server` → 7 tests correctos.
 - `npm run build` → correcto.
+- `RUN_LIVE_INTEGRATION=1 npm test --prefix packages/server` → 8 tests correctos
+  contra PostgreSQL/pgvector y Ollama reales.
 
 ## Pendiente
 
@@ -42,7 +44,8 @@ La validación manual confirmó que el entorno local está disponible desde Dock
 - Ollama figura `unhealthy` únicamente porque su healthcheck ejecuta `curl`, ausente en
   la imagen (`/bin/sh: curl: not found`); la API está operativa.
 
-La integración real deja de estar bloqueada por disponibilidad de servicios. El siguiente
-paso es ejecutar un smoke test del servidor contra estas instancias y convertirlo después
-en una prueba de integración reproducible. La corrección del healthcheck queda registrada
-como higiene local, fuera del foco prioritario de estabilización.
+La integración real deja de estar bloqueada por disponibilidad de servicios. Se añadió
+`packages/server/test/live-integration.test.ts`, opt-in mediante `RUN_LIVE_INTEGRATION=1`,
+que verifica conexión a PostgreSQL, extensión pgvector, disponibilidad de Ollama, modelo
+de chat y generación de embeddings. La corrección del healthcheck queda registrada como
+higiene local, fuera del foco prioritario de estabilización.
