@@ -26,6 +26,8 @@ modifica.
 Se puede ajustar `OLLAMA_EMBED_MAX_CHARS` según el modelo, manteniendo margen para su
 ventana de tokens. El valor afecta únicamente la representación vectorial.
 
-Nota operativa: el servicio MCP persistente debe reiniciarse/reconstruirse para ejecutar
-esta versión; mientras siga activo un bundle anterior, los updates del TASK_CONTEXT pueden
-continuar fallando por ventana de contexto.
+Verificación operativa — 2026-09-15: el runtime MCP activo aceptó una actualización real
+del `TASK_CONTEXT` acumulativo mediante `update_memory` y una búsqueda posterior confirmó
+la persistencia del cambio. No queda pendiente reiniciar/reconstruir el runtime para esta
+corrección. La estrategia estructural de versionado o reemplazo periódico del
+`TASK_CONTEXT` sigue pendiente como mejora futura.
