@@ -26,7 +26,9 @@ FTS aporta coincidencia textual.
 ## Riesgos actuales
 
 - `delete_memory` agrupa la eliminación de accesos y entrada en una transacción;
-  compactación y carreras de deduplicación aún requieren revisión.
+  compactación también agrupa sus escrituras en una transacción con lock por proyecto;
+  carreras de deduplicación aún requieren revisión.
+- Las consultas tienen `statement_timeout` configurable por `DB_STATEMENT_TIMEOUT_MS`.
 - La dimensión `vector(768)` depende del modelo sin metadata de versión.
 - Tokens reutilizables están almacenados en texto plano.
 - No hay mecanismo interno de versión de schema consultable por la aplicación.

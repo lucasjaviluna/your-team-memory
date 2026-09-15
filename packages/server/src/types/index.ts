@@ -39,6 +39,7 @@ export const INPUT_LIMITS = {
   AUTHOR: 120,
   TAGS: 20,
   TAG: 80,
+  COMPACTION_PROMPT: 500_000,
 } as const
 
 // ── Deduplicación ─────────────────────────────────────────────────────────────

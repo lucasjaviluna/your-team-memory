@@ -36,6 +36,8 @@ conocimiento.
 - No existen dataset ni métricas de relevancia versionadas.
 - Modelo y dimensión del embedding están implícitamente acoplados al schema.
 - Contenido almacenado puede influir indebidamente en el prompt de compactación.
+- La compactación real serializa por proyecto y confirma todos los grupos en una única
+  transacción; si una fuente cambió de estado se aborta el lote.
 
 ## Pruebas necesarias
 
@@ -49,3 +51,5 @@ conocimiento.
 
 Los schemas de entrada limitan tamaño de query, slug, título, contenido y tags. Las
 llamadas a Ollama tienen timeout configurable y validan la forma básica de la respuesta.
+`get_context` separa la cantidad total disponible de la cantidad retornada en la página,
+y la compactación falla explícitamente si el prompt excede el máximo permitido.

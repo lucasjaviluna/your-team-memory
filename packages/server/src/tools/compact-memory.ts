@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { query, queryOne, pool } from '../db/client.js'
+import { query, pool } from '../db/client.js'
 import { generateEmbedding, generateText, buildEmbeddingText } from '../embeddings/ollama.js'
-import { NON_COMPACTABLE_TYPES, COMPACTION_DEFAULTS } from '../types/index.js'
+import { NON_COMPACTABLE_TYPES, COMPACTION_DEFAULTS, INPUT_LIMITS } from '../types/index.js'
 import type { Area, EntryType, MemoryEntry } from '../types/index.js'
 
 export const CompactMemorySchema = z.object({
@@ -92,7 +92,7 @@ ${e.content}`
     )
     .join('\n\n')
 
-  return `You are a technical knowledge preservation assistant.
+  const prompt = `You are a technical knowledge preservation assistant.
 Your task is to compact ${entries.length} memory entries of type "${type}" from the "${area}" area into a single structured SUMMARY.
 
 CRITICAL RULES:
@@ -124,6 +124,21 @@ Area: ${area} | Type: ${type}
 ENTRIES TO COMPACT:
 
 ${entriesText}`
+
+  if (prompt.length > INPUT_LIMITS.COMPACTION_PROMPT) {
+    throw new Error(
+      `Compaction prompt is too large (${prompt.length} chars; maximum ${INPUT_LIMITS.COMPACTION_PROMPT}). ` +
+      'Reduce the batch size or split the entries before retrying.'
+    )
+  }
+  return prompt
+}
+
+interface GeneratedSummary {
+  group: CompactionGroup
+  title: string
+  content: string
+  embeddingStr: string
 }
 
 // ── Lógica principal ──────────────────────────────────────────────────────────
@@ -191,11 +206,7 @@ function groupCandidates(
   return groups
 }
 
-async function compactGroup(
-  group: CompactionGroup,
-  projectSlug: string
-): Promise<SummaryCreated> {
-  // 1. Generar texto del SUMMARY con el LLM
+async function generateSummary(group: CompactionGroup): Promise<GeneratedSummary> {
   const prompt  = buildCompactionPrompt(group.entries, group.area, group.type)
   const content = await generateText(prompt)
 
@@ -208,84 +219,44 @@ async function compactGroup(
 
   const title = `[COMPACTED] ${group.type} · ${group.area} · ${dateRange} (${group.entries.length} entries)`
 
-  // 2. Generar embedding del SUMMARY
   const embeddingText = buildEmbeddingText(title, content, [group.type, group.area, 'compacted'])
   const embedding     = await generateEmbedding(embeddingText)
-  const embeddingStr  = `[${embedding.join(',')}]`
-
-  // 3. Resolver project_id
-  const project = await queryOne<{ id: string }>(
-    'SELECT id FROM projects WHERE slug = $1',
-    [projectSlug]
-  )
-  if (!project) throw new Error(`Project not found: ${projectSlug}`)
-
-  const client = await pool.connect()
-  let summaryId: string
-  try {
-    await client.query('BEGIN')
-
-    // 4. Insertar el SUMMARY
-    const summaryRow = await client.query<{ id: string }>(
-      `INSERT INTO memory_entries
-         (project_id, area, type, title, content, tags, author, status, embedding)
-       VALUES ($1, $2, 'SUMMARY', $3, $4, $5, 'system:compact_memory', 'active', $6::vector)
-       RETURNING id`,
-      [
-        project.id,
-        group.area,
-        title,
-        content,
-        [group.type.toLowerCase(), group.area, 'compacted'],
-        embeddingStr,
-      ]
-    )
-    summaryId = summaryRow.rows[0].id
-
-    // 5. Archivar las entradas originales apuntando al SUMMARY
-    const entryIds = group.entries.map((e) => e.id)
-    await client.query(
-      `UPDATE memory_entries
-       SET status       = 'archived',
-           archived_into = $1
-       WHERE id = ANY($2::uuid[])`,
-      [summaryId, entryIds]
-    )
-
-    await client.query('COMMIT')
-  } catch (err) {
-    await client.query('ROLLBACK')
-    throw err
-  } finally {
-    client.release()
-  }
-
-  return {
-    summary_id:       summaryId,
-    area:             group.area,
-    type:             group.type,
-    title,
-    entries_archived: group.entries.length,
-    entry_ids:        group.entries.map((e) => e.id),
-  }
+  return { group, title, content, embeddingStr: `[${embedding.join(',')}]` }
 }
 
 // ── Función principal ─────────────────────────────────────────────────────────
 
 export async function compactMemory(input: CompactMemoryInput): Promise<CompactResult> {
   const { project_slug, dry_run, max_entries_per_summary } = input
+  // A session-level advisory lock serializes compaction for one project,
+  // including candidate selection and LLM generation.
+  const lockClient = dry_run ? null : await pool.connect()
+  let lockHeld = false
+  const releaseLock = async () => {
+    if (lockClient && lockHeld) {
+      await lockClient.query('SELECT pg_advisory_unlock(hashtext($1))', [project_slug]).catch(() => {})
+      lockHeld = false
+    }
+    lockClient?.release()
+  }
 
-  // Tipos que se saltearán por política (no compactables)
-  const requestedTypes = input.types ?? []
-  const skipped = requestedTypes.filter((t) =>
-    NON_COMPACTABLE_TYPES.includes(t as any)
-  )
+  try {
+    if (lockClient) {
+      await lockClient.query('SELECT pg_advisory_lock(hashtext($1))', [project_slug])
+      lockHeld = true
+    }
+
+    // Tipos que se saltearán por política (no compactables)
+    const requestedTypes = input.types ?? []
+    const skipped = requestedTypes.filter((t) =>
+      NON_COMPACTABLE_TYPES.includes(t as any)
+    )
 
   // 1. Encontrar candidatos
-  const candidates = await findCandidates(project_slug, input)
+    const candidates = await findCandidates(project_slug, input)
 
-  if (candidates.length === 0) {
-    return {
+    if (candidates.length === 0) {
+      return {
       dry_run,
       project_slug,
       candidates_found: 0,
@@ -295,15 +266,15 @@ export async function compactMemory(input: CompactMemoryInput): Promise<CompactR
       entries_archived: 0,
       summaries: [],
       skipped_types: skipped,
+      }
     }
-  }
 
   // 2. Agrupar por área + tipo
-  const groups = groupCandidates(candidates, max_entries_per_summary!)
+    const groups = groupCandidates(candidates, max_entries_per_summary!)
 
   // 3. Si es dry_run, retornar preview sin ejecutar nada
-  if (dry_run) {
-    return {
+    if (dry_run) {
+      return {
       dry_run: true,
       project_slug,
       candidates_found: candidates.length,
@@ -320,17 +291,55 @@ export async function compactMemory(input: CompactMemoryInput): Promise<CompactR
         entries_archived: g.entries.length,
         entry_ids:        g.entries.map((e) => e.id),
       })),
+      }
     }
-  }
 
-  // 4. Ejecutar compactación grupo por grupo
-  const summaries: SummaryCreated[] = []
-  for (const group of groups) {
-    const result = await compactGroup(group, project_slug)
-    summaries.push(result)
-  }
+    // 4. Generar todos los resúmenes antes de abrir la transacción de escritura.
+    const generated: GeneratedSummary[] = []
+    for (const group of groups) {
+      // Keep Ollama load bounded while still preparing every artifact before
+      // the single atomic database transaction.
+      generated.push(await generateSummary(group))
+    }
+    const project = await lockClient!.query<{ id: string }>(
+      'SELECT id FROM projects WHERE slug = $1', [project_slug]
+    )
+    if (project.rows.length === 0) throw new Error(`Project not found: ${project_slug}`)
 
-  return {
+    // 5. Insertar todos los SUMMARYs y archivar sus fuentes atómicamente.
+    const summaries: SummaryCreated[] = []
+    await lockClient!.query('BEGIN')
+    try {
+      for (const item of generated) {
+        const summaryRow = await lockClient!.query<{ id: string }>(
+          `INSERT INTO memory_entries
+             (project_id, area, type, title, content, tags, author, status, embedding)
+           VALUES ($1, $2, 'SUMMARY', $3, $4, $5, 'system:compact_memory', 'active', $6::vector)
+           RETURNING id`,
+          [project.rows[0].id, item.group.area, item.title, item.content,
+           [item.group.type.toLowerCase(), item.group.area, 'compacted'], item.embeddingStr]
+        )
+        const summaryId = summaryRow.rows[0].id
+        const entryIds = item.group.entries.map((entry) => entry.id)
+        const archived = await lockClient!.query(
+          `UPDATE memory_entries
+           SET status = 'archived', archived_into = $1
+           WHERE id = ANY($2::uuid[]) AND status = 'active'`,
+          [summaryId, entryIds]
+        )
+        if (archived.rowCount !== entryIds.length) {
+          throw new Error(`Compaction conflict: expected ${entryIds.length} active entries, archived ${archived.rowCount}`)
+        }
+        summaries.push({ summary_id: summaryId, area: item.group.area, type: item.group.type,
+          title: item.title, entries_archived: entryIds.length, entry_ids: entryIds })
+      }
+      await lockClient!.query('COMMIT')
+    } catch (err) {
+      await lockClient!.query('ROLLBACK').catch(() => {})
+      throw err
+    }
+
+    return {
     dry_run:           false,
     project_slug,
     candidates_found:  candidates.length,
@@ -340,5 +349,8 @@ export async function compactMemory(input: CompactMemoryInput): Promise<CompactR
     entries_archived:  summaries.reduce((acc, s) => acc + s.entries_archived, 0),
     summaries,
     skipped_types:     skipped,
+    }
+  } finally {
+    await releaseLock()
   }
 }

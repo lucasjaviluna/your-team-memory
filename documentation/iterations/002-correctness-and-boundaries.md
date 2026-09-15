@@ -18,6 +18,16 @@ operaciones de persistencia más seguras.
 - `logAccess` ya no puede fallar antes del bloque de rollback/finally si el pool no
   consigue conexión.
 - `delete_memory` ejecuta eliminación de log y entrada dentro de una transacción.
+- `get_context` informa `total_entries` como total real de entradas activas del proyecto.
+- La compactación rechaza prompts que superen el límite configurado, evitando truncado
+  silencioso de conocimiento.
+- PostgreSQL usa `DB_STATEMENT_TIMEOUT_MS` (15 segundos por defecto) para evitar queries
+  colgadas indefinidamente.
+- La creación concurrente del mismo proyecto recupera el registro ganador tras una
+  colisión de slug único.
+- La compactación real serializa por proyecto con advisory lock, genera los artefactos
+  secuencialmente y confirma la inserción de SUMMARYs y archivado de fuentes en una
+  única transacción; un conflicto de filas cancela el lote completo.
 - Se añadieron tres pruebas ejecutables de schemas y límites con `node:test`/`tsx`.
 
 ## Verificación
@@ -27,9 +37,7 @@ operaciones de persistencia más seguras.
 
 ## Pendiente de Iteración 002
 
-- Corregir semántica y conteos de `get_context`.
-- Revisar atomicidad de compactación y carreras de deduplicación.
+- Revisar carreras de deduplicación.
 - Unificar errores de dominio y protocolo.
 - Añadir pruebas de integración con PostgreSQL y mocks de Ollama.
 - Revisar límites de prompts de compactación y política de truncado.
-

@@ -95,6 +95,13 @@ export async function getContext(input: GetContextInput): Promise<ContextSummary
   logAccess(allIds, 'get_context')
 
   const allEntries = [...priorityEntries, ...entries]
+  const [{ total }] = await query<{ total: string }>(
+    `SELECT COUNT(*) AS total
+     FROM memory_entries me
+     JOIN projects p ON p.id = me.project_id
+     WHERE p.slug = $1 AND me.status = 'active'`,
+    [project_slug]
+  )
   const entries_by_type = allEntries.reduce<Record<string, number>>((acc, e) => {
     acc[e.type] = (acc[e.type] ?? 0) + 1
     return acc
@@ -103,7 +110,7 @@ export async function getContext(input: GetContextInput): Promise<ContextSummary
   return {
     project_slug,
     area_filter: area,
-    total_entries: allEntries.length,
+    total_entries: Number(total ?? 0),
     entries_by_type,
     priority_entries: priorityEntries,
     entries,

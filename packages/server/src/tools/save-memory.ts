@@ -49,10 +49,19 @@ export async function saveMemory(input: SaveMemoryInput): Promise<SaveMemoryResu
   )
 
   if (!project) {
-    project = await queryOne<Project>(
-      `INSERT INTO projects (slug, name) VALUES ($1, $2) RETURNING *`,
-      [input.project_slug, input.project_slug]
-    )
+    try {
+      project = await queryOne<Project>(
+        `INSERT INTO projects (slug, name) VALUES ($1, $2) RETURNING *`,
+        [input.project_slug, input.project_slug]
+      )
+    } catch (err) {
+      // Another writer may have created the same slug concurrently.
+      if ((err as { code?: string }).code !== '23505') throw err
+      project = await queryOne<Project>(
+        'SELECT * FROM projects WHERE slug = $1',
+        [input.project_slug]
+      )
+    }
   }
   if (!project) throw new Error(`Could not resolve project: ${input.project_slug}`)
 
