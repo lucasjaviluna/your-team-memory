@@ -15,6 +15,10 @@ import {
   getMemoryStats,
 } from "./tools/get-memory-stats.js";
 import { DeleteMemorySchema, deleteMemory } from "./tools/delete-memory.js";
+import {
+  GetMemoryRevisionsSchema,
+  getMemoryRevisions,
+} from "./tools/get-memory-revisions.js";
 import { requireAuth, checkToolPermission } from "./middleware/auth.js";
 import { authRouter } from "./routes/auth.js";
 import { toolError } from "./errors.js";
@@ -131,6 +135,30 @@ SUMMARY and TASK_CONTEXT are excluded from the duplicate check — they are accu
                 count: results.length,
                 results,
               }),
+            },
+          ],
+        };
+      } catch (err) {
+        return toolError(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_memory_revisions",
+    {
+      description:
+        "List the historical revisions of a memory entry by entry_id. Returns newest first, supports pagination, and never returns embeddings.",
+      inputSchema: GetMemoryRevisionsSchema,
+    },
+    async (input) => {
+      try {
+        const result = await getMemoryRevisions(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ success: true, ...result }),
             },
           ],
         };

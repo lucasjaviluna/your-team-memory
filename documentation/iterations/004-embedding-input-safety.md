@@ -36,5 +36,6 @@ corrección.
 La migración `db/migrations/004_memory_entry_revisions.sql` crea
 `memory_entry_revisions`. `update_memory` registra la versión previa dentro de una
 transacción antes de aplicar cambios, permitiendo reemplazar o rotar un `TASK_CONTEXT`
-sin perder trazabilidad. El siguiente paso es exponer consulta/restauración de revisiones
+sin perder trazabilidad. La tool `get_memory_revisions` expone el historial por
+`entry_id`, con paginación y sin embeddings. El siguiente paso es restaurar revisiones
 y definir cuándo rotar automáticamente el contexto.

@@ -9,6 +9,7 @@ process.env.DB_NAME ??= 'test'
 const { SaveMemorySchema } = await import('../src/tools/save-memory.js')
 const { UpdateMemorySchema } = await import('../src/tools/update-memory.js')
 const { SearchMemorySchema } = await import('../src/tools/search-memory.js')
+const { GetMemoryRevisionsSchema } = await import('../src/tools/get-memory-revisions.js')
 const { combineRrf, selectRankedIds } = await import('../src/tools/ranking.js')
 
 test('save_memory accepts a valid bounded entry', () => {
@@ -43,6 +44,21 @@ test('update schema preserves mutually exclusive operations for the service laye
     append_content: 'additional content',
   })
   assert.equal(result.success, true)
+})
+
+test('revision schema validates entry id and pagination bounds', () => {
+  assert.equal(GetMemoryRevisionsSchema.safeParse({
+    entry_id: '00000000-0000-0000-0000-000000000000',
+    limit: 50,
+    offset: 10,
+  }).success, true)
+  assert.equal(GetMemoryRevisionsSchema.safeParse({
+    entry_id: 'not-a-uuid',
+  }).success, false)
+  assert.equal(GetMemoryRevisionsSchema.safeParse({
+    entry_id: '00000000-0000-0000-0000-000000000000',
+    limit: 51,
+  }).success, false)
 })
 
 test('RRF ranking favors results present in both rankings', () => {

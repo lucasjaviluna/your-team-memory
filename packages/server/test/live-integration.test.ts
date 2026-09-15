@@ -11,6 +11,7 @@ test('live services: PostgreSQL/pgvector and Ollama', { skip: !live }, async () 
   const { searchMemory } = await import('../src/tools/search-memory.js')
   const { getContext } = await import('../src/tools/get-context.js')
   const { updateMemory } = await import('../src/tools/update-memory.js')
+  const { getMemoryRevisions } = await import('../src/tools/get-memory-revisions.js')
 
   assert.equal(await checkConnection(), true, 'PostgreSQL no responde')
   assert.equal(await checkOllamaConnection(), true, 'Ollama no responde')
@@ -59,6 +60,15 @@ test('live services: PostgreSQL/pgvector and Ollama', { skip: !live }, async () 
     })
     assert.match(updated.content, /Actualización verificada/)
     assert.ok(updated.tags.includes('updated'))
+
+    const revisions = await getMemoryRevisions({
+      entry_id: saved.entry!.id,
+      limit: 10,
+      offset: 0,
+    })
+    assert.equal(revisions.total, 1)
+    assert.equal(revisions.revisions[0]?.revision, 1)
+    assert.equal('embedding' in (revisions.revisions[0] ?? {}), false)
   } finally {
     await query('DELETE FROM projects WHERE slug = $1', [projectSlug])
   }

@@ -48,6 +48,8 @@ conocimiento.
   nunca se trunca.
 - `update_memory` registra la versión previa en `memory_entry_revisions` antes de aplicar
   cambios. Esto permite reemplazar o rotar un `TASK_CONTEXT` sin perder trazabilidad.
+- `get_memory_revisions` consulta ese historial por `entry_id`, devuelve revisiones más
+  recientes primero con paginación y omite embeddings del resultado.
 
 ## Pruebas necesarias
 
