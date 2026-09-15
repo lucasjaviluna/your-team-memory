@@ -24,6 +24,8 @@ con datos reales.
 - `npm run build` → correcto.
 - `RUN_LIVE_INTEGRATION=1 npm test --prefix packages/server` → 8 tests correctos
   contra PostgreSQL/pgvector y Ollama reales.
+- El smoke test live también ejercita `save_memory`, `search_memory`, `get_context` y
+  `update_memory` sobre un proyecto temporal, que se elimina al finalizar.
 
 ## Pendiente
 
@@ -47,5 +49,6 @@ La validación manual confirmó que el entorno local está disponible desde Dock
 La integración real deja de estar bloqueada por disponibilidad de servicios. Se añadió
 `packages/server/test/live-integration.test.ts`, opt-in mediante `RUN_LIVE_INTEGRATION=1`,
 que verifica conexión a PostgreSQL, extensión pgvector, disponibilidad de Ollama, modelo
-de chat y generación de embeddings. La corrección del healthcheck queda registrada como
-higiene local, fuera del foco prioritario de estabilización.
+de chat, generación de embeddings y el flujo funcional de las tools principales. La
+corrección del healthcheck queda registrada como higiene local, fuera del foco prioritario
+de estabilización.
