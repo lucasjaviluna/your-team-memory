@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { query, queryOne } from '../db/client.js'
+import { pool, query, queryOne } from '../db/client.js'
 import { generateEmbedding, buildEmbeddingText } from '../embeddings/ollama.js'
 import { findNearDuplicate } from './find-near-duplicate.js'
 import type { MemoryEntry, Project, SaveMemoryResult } from '../types/index.js'
@@ -65,47 +65,60 @@ export async function saveMemory(input: SaveMemoryInput): Promise<SaveMemoryResu
   }
   if (!project) throw new Error(`Could not resolve project: ${input.project_slug}`)
 
-  // 2. Deduplicación — solo si force: false (default)
-  if (!input.force) {
-    const duplicate = await findNearDuplicate({
-      project_id: project.id,
-      area:       input.area,
-      type:       input.type,
-      title:      input.title,
-      content:    input.content,
-      tags:       input.tags,
-    })
+  // Serialize the check + insert window for the same project/area/type. The
+  // duplicate queries use their own pool connections, so the dedicated lock
+  // session is intentionally held until the insert completes.
+  const lockClient = await pool.connect()
+  const lockKey = `${project.id}:${input.area}:${input.type}`
+  let lockHeld = false
+  try {
+    await lockClient.query('SELECT pg_advisory_lock(hashtext($1))', [lockKey])
+    lockHeld = true
 
-    if (duplicate) {
-      const isExactTitle = duplicate.score === 1.0
-      return {
-        saved:     false,
-        duplicate,
-        suggestion: isExactTitle
-          ? `An entry with the exact same title already exists (id: ${duplicate.id}). ` +
-            `Use update_memory to extend it, or save_memory with force: true if this is intentionally a separate entry.`
-          : `A semantically very similar entry was found (id: ${duplicate.id}, score: ${duplicate.score.toFixed(4)}). ` +
-            `Review it and use update_memory to extend it if it covers the same topic, ` +
-            `or save_memory with force: true if this entry is genuinely different.`,
+    // 2. Deduplicación — solo si force: false (default)
+    if (!input.force) {
+      const duplicate = await findNearDuplicate({
+        project_id: project.id,
+        area:       input.area,
+        type:       input.type,
+        title:      input.title,
+        content:    input.content,
+        tags:       input.tags,
+      })
+
+      if (duplicate) {
+        const isExactTitle = duplicate.score === 1.0
+        return {
+          saved:     false,
+          duplicate,
+          suggestion: isExactTitle
+            ? `An entry with the exact same title already exists (id: ${duplicate.id}). ` +
+              `Use update_memory to extend it, or save_memory with force: true if this is intentionally a separate entry.`
+            : `A semantically very similar entry was found (id: ${duplicate.id}, score: ${duplicate.score.toFixed(4)}). ` +
+              `Review it and use update_memory to extend it if it covers the same topic, ` +
+              `or save_memory with force: true if this entry is genuinely different.`,
+        }
       }
     }
+
+    // 3. Generar embedding
+    const embeddingText = buildEmbeddingText(input.title, input.content, input.tags)
+    const embedding     = await generateEmbedding(embeddingText)
+    const embeddingStr  = `[${embedding.join(',')}]`
+
+    // 4. Insertar
+    const entry = await queryOne<MemoryEntry>(
+      `INSERT INTO memory_entries
+         (project_id, area, type, title, content, tags, author, embedding)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::vector)
+       RETURNING *`,
+      [project.id, input.area, input.type, input.title, input.content, input.tags, input.author, embeddingStr]
+    )
+
+    if (!entry) throw new Error('Failed to insert memory entry')
+    return { saved: true, entry }
+  } finally {
+    if (lockHeld) await lockClient.query('SELECT pg_advisory_unlock(hashtext($1))', [lockKey]).catch(() => {})
+    lockClient.release()
   }
-
-  // 3. Generar embedding
-  const embeddingText = buildEmbeddingText(input.title, input.content, input.tags)
-  const embedding     = await generateEmbedding(embeddingText)
-  const embeddingStr  = `[${embedding.join(',')}]`
-
-  // 4. Insertar
-  const entry = await queryOne<MemoryEntry>(
-    `INSERT INTO memory_entries
-       (project_id, area, type, title, content, tags, author, embedding)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::vector)
-     RETURNING *`,
-    [project.id, input.area, input.type, input.title, input.content, input.tags, input.author, embeddingStr]
-  )
-
-  if (!entry) throw new Error('Failed to insert memory entry')
-
-  return { saved: true, entry }
 }

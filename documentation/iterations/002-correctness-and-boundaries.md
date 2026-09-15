@@ -28,6 +28,12 @@ operaciones de persistencia más seguras.
 - La compactación real serializa por proyecto con advisory lock, genera los artefactos
   secuencialmente y confirma la inserción de SUMMARYs y archivado de fuentes en una
   única transacción; un conflicto de filas cancela el lote completo.
+- `save_memory` serializa la ventana deduplicar–embeber–insertar por proyecto, área y
+  tipo mediante advisory lock para evitar duplicados concurrentes.
+- Se añadieron pruebas del cliente Ollama para vector válido, respuesta inválida y
+  error HTTP del proveedor.
+- Se centralizó la extracción/serialización de errores de tools MCP en `src/errors.ts`,
+  con un envelope uniforme `{ success: false, error }`.
 - Se añadieron tres pruebas ejecutables de schemas y límites con `node:test`/`tsx`.
 
 ## Verificación
@@ -37,7 +43,7 @@ operaciones de persistencia más seguras.
 
 ## Pendiente de Iteración 002
 
-- Revisar carreras de deduplicación.
+- Revisar errores de rutas HTTP de autenticación y su propagación async.
 - Unificar errores de dominio y protocolo.
 - Añadir pruebas de integración con PostgreSQL y mocks de Ollama.
 - Revisar límites de prompts de compactación y política de truncado.

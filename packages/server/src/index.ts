@@ -17,6 +17,7 @@ import {
 import { DeleteMemorySchema, deleteMemory } from "./tools/delete-memory.js";
 import { requireAuth, checkToolPermission } from "./middleware/auth.js";
 import { authRouter } from "./routes/auth.js";
+import { toolError } from "./errors.js";
 
 const TRANSPORT = process.env.MCP_TRANSPORT ?? "stdio";
 const PORT = Number(process.env.MCP_PORT ?? 3100);
@@ -77,18 +78,7 @@ SUMMARY and TASK_CONTEXT are excluded from the duplicate check — they are accu
           ],
         };
       } catch (err) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                success: false,
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            },
-          ],
-          isError: true,
-        };
+        return toolError(err);
       }
     },
   );
@@ -117,18 +107,7 @@ SUMMARY and TASK_CONTEXT are excluded from the duplicate check — they are accu
           ],
         };
       } catch (err) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                success: false,
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            },
-          ],
-          isError: true,
-        };
+        return toolError(err);
       }
     },
   );
@@ -156,18 +135,7 @@ SUMMARY and TASK_CONTEXT are excluded from the duplicate check — they are accu
           ],
         };
       } catch (err) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                success: false,
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            },
-          ],
-          isError: true,
-        };
+        return toolError(err);
       }
     },
   );
@@ -194,18 +162,7 @@ SUMMARY and TASK_CONTEXT are excluded from the duplicate check — they are accu
           ],
         };
       } catch (err) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                success: false,
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            },
-          ],
-          isError: true,
-        };
+        return toolError(err);
       }
     },
   );
@@ -232,18 +189,7 @@ SUMMARY and TASK_CONTEXT are excluded from the duplicate check — they are accu
           ],
         };
       } catch (err) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                success: false,
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            },
-          ],
-          isError: true,
-        };
+        return toolError(err);
       }
     },
   );
@@ -267,18 +213,7 @@ for future authenticated user tracking — currently ignored.`,
           ],
         };
       } catch (err) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                success: false,
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            },
-          ],
-          isError: true,
-        };
+        return toolError(err);
       }
     },
   );
@@ -309,18 +244,7 @@ for future authenticated user tracking — currently ignored.`,
           ],
         };
       } catch (err) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                success: false,
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            },
-          ],
-          isError: true,
-        };
+        return toolError(err);
       }
     },
   );
@@ -351,18 +275,7 @@ The 'confirm' field must be explicitly set to true.`,
           ],
         };
       } catch (err) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                success: false,
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            },
-          ],
-          isError: true,
-        };
+        return toolError(err);
       }
     },
   );

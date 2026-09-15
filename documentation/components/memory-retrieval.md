@@ -38,6 +38,8 @@ conocimiento.
 - Contenido almacenado puede influir indebidamente en el prompt de compactación.
 - La compactación real serializa por proyecto y confirma todos los grupos en una única
   transacción; si una fuente cambió de estado se aborta el lote.
+- La deduplicación serializa por proyecto/área/tipo durante check, embedding e inserción;
+  esto evita que dos escritores concurrentes atraviesen el check simultáneamente.
 
 ## Pruebas necesarias
 

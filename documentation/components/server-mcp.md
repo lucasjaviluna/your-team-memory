@@ -15,12 +15,14 @@ control de permisos previo a una llamada de tool.
 - El transporte no debe compartir el campo reservado de autenticación con el contexto
   de identidad de Team Memory.
 - Todos los consumidores deben interpretar el mismo envelope de respuesta.
+- Los fallos de tools se serializan mediante `src/errors.ts` con el mismo envelope
+  `{ success: false, error }` y `isError: true`.
 
 ## Riesgos actuales
 
 - La identidad propia ya está aislada en `teamMemoryAuth`, pero todavía no se inyecta
   en el contexto de ejecución de cada tool.
-- Registro repetitivo de handlers y serialización manual de respuestas.
+- Registro repetitivo de handlers; la serialización de errores ya está centralizada.
 - Falta un contexto de ejecución formal que lleve identidad y datos de request a las tools.
 - No hay catálogo automatizado de contratos para verificar clientes.
 
