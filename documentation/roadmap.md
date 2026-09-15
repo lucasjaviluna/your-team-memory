@@ -53,6 +53,12 @@ Objetivo: convertir relevancia y deduplicación en propiedades medibles.
 Criterio de salida: un comando local genera un reporte reproducible de calidad y
 protege un conjunto de casos críticos contra regresiones.
 
+Estado actual: corpus v1 etiquetado y evaluación live disponible mediante
+`RUN_LIVE_INTEGRATION=1 RAG_EVAL_SWEEP=1 npm test --prefix packages/server`.
+Baseline observado: precision macro 0.487, recall 1.000, MRR 0.813; el barrido inicial
+sugiere `limit=5` como compromiso provisional y requiere calibrar `min_score` entre
+0.005 y 0.016.
+
 ## Iteración 4 — Identidad y trazabilidad funcional
 
 Objetivo: que las acciones sean atribuibles sin depender de texto declarado.
@@ -94,4 +100,3 @@ completo de crear, buscar, editar, revisar y compactar memoria.
 - Automatización de migraciones en despliegue.
 - CI/CD y estrategia de releases.
 - TLS, proxy, backups, alta disponibilidad y observabilidad productiva.
-

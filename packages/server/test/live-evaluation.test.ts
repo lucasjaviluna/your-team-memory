@@ -29,4 +29,27 @@ test('live RAG evaluation corpus produces measurable metrics', { skip: !live }, 
 
   const average = averageMetrics(metrics)
   console.log(`RAG corpus-v1 macro: precision=${average.precision.toFixed(3)} recall=${average.recall.toFixed(3)} mrr=${average.mrr.toFixed(3)}`)
+
+  if (process.env.RAG_EVAL_SWEEP === '1') {
+    for (const limit of [3, 5, 10]) {
+      for (const min_score of [0, 0.005, 0.01, 0.015, 0.016]) {
+        const sweepMetrics = []
+        for (const evaluationCase of corpus.cases) {
+          const results = await searchMemory({
+            query: evaluationCase.query,
+            project_slug: 'team-memory',
+            type: evaluationCase.type as never,
+            limit,
+            min_score,
+          })
+          sweepMetrics.push(evaluateRanking(
+            evaluationCase.relevant_ids,
+            results.map((result) => result.id),
+          ))
+        }
+        const current = averageMetrics(sweepMetrics)
+        console.log(`RAG sweep limit=${limit} min_score=${min_score.toFixed(2)}: precision=${current.precision.toFixed(3)} recall=${current.recall.toFixed(3)} mrr=${current.mrr.toFixed(3)}`)
+      }
+    }
+  }
 })

@@ -45,6 +45,18 @@ El corpus fue etiquetado con IDs activos del proyecto y se incorporó
 La cobertura es alta, pero la precisión refleja resultados secundarios; se debe calibrar
 `limit` y `min_score` antes de evaluar cambios de modelo.
 
+### Barrido inicial (2026-09-15)
+
+Con el corpus actual, el barrido live mostró:
+
+- `limit=3`: precision `0.500`, recall `0.625`, MRR `0.625`.
+- `limit=5`: precision `0.450`, recall `0.875`, MRR `0.675`.
+- `limit=10`: precision `0.450`, recall `1.000`, MRR `0.675`.
+
+Los umbrales `min_score >= 0.02` eliminan todo porque el RRF actual tiene scores máximos
+inferiores a ese valor (con `k=60`). Por ahora `limit=5` ofrece el mejor compromiso práctico;
+el umbral debe calibrarse en el rango `0.005–0.016` y volver a medirse al crecer el corpus.
+
 ## Estado de servicios locales (2026-09-14)
 
 La validación manual confirmó que el entorno local está disponible desde Docker Desktop
