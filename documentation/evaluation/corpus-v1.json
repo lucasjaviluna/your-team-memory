@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "description": "Plantilla inicial de consultas etiquetadas para evaluar la recuperación híbrida.",
+  "status": "seed",
+  "cases": [
+    {
+      "id": "architecture",
+      "query": "¿Cuál es la arquitectura general del proyecto?",
+      "relevant_ids": []
+    },
+    {
+      "id": "rag-quality",
+      "query": "¿Cómo se combinan la búsqueda vectorial y la búsqueda por texto?",
+      "relevant_ids": []
+    },
+    {
+      "id": "live-integration",
+      "query": "¿Cómo se valida la integración real con PostgreSQL y Ollama?",
+      "relevant_ids": []
+    },
+    {
+      "id": "next-work",
+      "query": "¿Cuáles son los próximos pendientes de estabilización?",
+      "relevant_ids": []
+    }
+  ]
+}

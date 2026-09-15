@@ -1,19 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { checkConnection, pool, query } from '../src/db/client.js'
-import {
-  checkChatModel,
-  checkOllamaConnection,
-  generateEmbedding,
-} from '../src/embeddings/ollama.js'
-import { saveMemory } from '../src/tools/save-memory.js'
-import { searchMemory } from '../src/tools/search-memory.js'
-import { getContext } from '../src/tools/get-context.js'
-import { updateMemory } from '../src/tools/update-memory.js'
 
 const live = process.env.RUN_LIVE_INTEGRATION === '1'
 
 test('live services: PostgreSQL/pgvector and Ollama', { skip: !live }, async () => {
+  const { checkConnection, pool, query } = await import('../src/db/client.js')
+  const { checkChatModel, checkOllamaConnection, generateEmbedding } =
+    await import('../src/embeddings/ollama.js')
+  const { saveMemory } = await import('../src/tools/save-memory.js')
+  const { searchMemory } = await import('../src/tools/search-memory.js')
+  const { getContext } = await import('../src/tools/get-context.js')
+  const { updateMemory } = await import('../src/tools/update-memory.js')
+
   assert.equal(await checkConnection(), true, 'PostgreSQL no responde')
   assert.equal(await checkOllamaConnection(), true, 'Ollama no responde')
   assert.equal(await checkChatModel(), true, 'OLLAMA_CHAT_MODEL no está disponible')
