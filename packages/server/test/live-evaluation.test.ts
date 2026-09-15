@@ -48,7 +48,7 @@ test('live RAG evaluation corpus produces measurable metrics', { skip: !live }, 
           ))
         }
         const current = averageMetrics(sweepMetrics)
-        console.log(`RAG sweep limit=${limit} min_score=${min_score.toFixed(2)}: precision=${current.precision.toFixed(3)} recall=${current.recall.toFixed(3)} mrr=${current.mrr.toFixed(3)}`)
+        console.log(`RAG sweep limit=${limit} min_score=${min_score.toFixed(4)}: precision=${current.precision.toFixed(3)} recall=${current.recall.toFixed(3)} mrr=${current.mrr.toFixed(3)}`)
       }
     }
   }

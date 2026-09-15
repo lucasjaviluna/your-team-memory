@@ -53,9 +53,28 @@ Con el corpus actual, el barrido live mostró:
 - `limit=5`: precision `0.450`, recall `0.875`, MRR `0.675`.
 - `limit=10`: precision `0.450`, recall `1.000`, MRR `0.675`.
 
-Los umbrales `min_score >= 0.02` eliminan todo porque el RRF actual tiene scores máximos
-inferiores a ese valor (con `k=60`). Por ahora `limit=5` ofrece el mejor compromiso práctico;
-el umbral debe calibrarse en el rango `0.005–0.016` y volver a medirse al crecer el corpus.
+Los umbrales altos reducen el recall: con `min_score=0.016` el recall macro cae a `0.500`
+para `limit=3/5/10`, mientras que `0.015` ya lo reduce a `0.875` en `limit=10`. Por ahora
+`limit=5` y `min_score=0` ofrecen el mejor compromiso práctico para no perder cobertura;
+el umbral debe calibrarse con un corpus mayor y el reporte conserva cuatro decimales para
+no ocultar diferencias entre `0.005`, `0.010` y `0.015`.
+
+## Glosario y reglas de evaluación
+
+- **Precision@k**: proporción de resultados recuperados que son relevantes dentro de los
+  primeros `k`; mide ruido.
+- **Recall@k**: proporción de resultados relevantes conocidos recuperados dentro de los
+  primeros `k`; mide cobertura.
+- **MRR** (Mean Reciprocal Rank): promedio de `1/rango` del primer resultado relevante;
+  premia que aparezca temprano.
+- **`limit`**: máximo de resultados devueltos; aumentarlo suele subir recall y también el
+  número de resultados secundarios.
+- **`min_score`**: umbral mínimo del score RRF; subirlo reduce ruido, pero puede eliminar
+  evidencia relevante. No representa una probabilidad.
+
+Regla provisional: usar `limit=5` y `min_score=0` como referencia hasta ampliar el corpus.
+No cambiar el modelo por variaciones pequeñas de una sola métrica; comparar siempre
+precision, recall y MRR sobre el corpus completo.
 
 ## Estado de servicios locales (2026-09-14)
 
