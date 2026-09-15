@@ -43,6 +43,9 @@ conocimiento.
 - La lógica RRF vive en `tools/ranking.ts`, tiene pruebas puras y `search_memory` expone
   `min_score` opcional. El analizador FTS se selecciona con `FTS_LANGUAGE` y por defecto
   es `simple` para no asumir un idioma único.
+- El texto enviado al proveedor de embeddings se limita a `OLLAMA_EMBED_MAX_CHARS`
+  (12.000 por defecto), preservando título, tags, inicio y final; el contenido persistido
+  nunca se trunca.
 
 ## Pruebas necesarias
 
@@ -56,5 +59,7 @@ conocimiento.
 
 Los schemas de entrada limitan tamaño de query, slug, título, contenido y tags. Las
 llamadas a Ollama tienen timeout configurable y validan la forma básica de la respuesta.
+El texto enviado al embedding tiene un límite independiente (`OLLAMA_EMBED_MAX_CHARS`)
+para evitar fallos por ventana de contexto en entradas largas.
 `get_context` separa la cantidad total disponible de la cantidad retornada en la página,
 y la compactación falla explícitamente si el prompt excede el máximo permitido.

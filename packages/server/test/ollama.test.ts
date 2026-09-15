@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 process.env.OLLAMA_TIMEOUT_MS = '25'
-const { generateEmbedding, generateText } = await import('../src/embeddings/ollama.js')
+const { generateEmbedding, generateText, buildEmbeddingText } = await import('../src/embeddings/ollama.js')
 
 const originalFetch = globalThis.fetch
 
@@ -28,4 +28,15 @@ test('generateEmbedding rejects malformed provider responses', async () => {
 test('generateText exposes upstream HTTP failures', async () => {
   globalThis.fetch = async () => new Response('model unavailable', { status: 503 })
   await assert.rejects(() => generateText('prompt'), /Ollama generate failed \(503\)/)
+})
+
+test('buildEmbeddingText bounds provider input without changing stored content', () => {
+  const content = 'inicio importante ' + 'x'.repeat(20_000) + ' final importante'
+  const result = buildEmbeddingText('Título crítico', content, ['tag-rag'])
+  assert.ok(result.length <= 12_000)
+  assert.match(result, /Título crítico/)
+  assert.match(result, /tag-rag/)
+  assert.match(result, /inicio importante/)
+  assert.match(result, /final importante/)
+  assert.match(result, /contenido intermedio omitido/)
 })

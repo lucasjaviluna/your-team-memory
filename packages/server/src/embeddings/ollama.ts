@@ -2,6 +2,7 @@ const OLLAMA_URL        = process.env.OLLAMA_URL         ?? 'http://localhost:11
 const EMBED_MODEL       = process.env.OLLAMA_EMBED_MODEL ?? 'nomic-embed-text'
 const CHAT_MODEL        = process.env.OLLAMA_CHAT_MODEL  ?? 'llama3'
 const REQUEST_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS ?? 30_000)
+const EMBEDDING_MAX_CHARS = Number(process.env.OLLAMA_EMBED_MAX_CHARS ?? 12_000)
 
 async function ollamaFetch(path: string, init: RequestInit): Promise<Response> {
   return fetch(`${OLLAMA_URL}${path}`, {
@@ -36,7 +37,17 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
 export function buildEmbeddingText(title: string, content: string, tags: string[]): string {
   const tagStr = tags.length > 0 ? `Tags: ${tags.join(', ')}` : ''
-  return [title, content, tagStr].filter(Boolean).join('\n\n')
+  const header = [title, tagStr].filter(Boolean).join('\n\n')
+  const fullText = [header, content].filter(Boolean).join('\n\n')
+  if (fullText.length <= EMBEDDING_MAX_CHARS) return fullText
+
+  const marker = '\n\n[… contenido intermedio omitido para embedding …]\n\n'
+  const separatorLength = header && content ? 2 : 0
+  const contentBudget = Math.max(0, EMBEDDING_MAX_CHARS - header.length - separatorLength - marker.length)
+  const headLength = Math.ceil(contentBudget * 0.6)
+  const tailLength = Math.max(0, contentBudget - headLength)
+  const compactContent = `${content.slice(0, headLength)}${marker}${tailLength > 0 ? content.slice(-tailLength) : ''}`
+  return [header, compactContent].filter(Boolean).join('\n\n')
 }
 
 // ── Text generation (para compact_memory) ────────────────────────────────────
