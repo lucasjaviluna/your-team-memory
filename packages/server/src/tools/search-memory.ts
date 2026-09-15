@@ -5,6 +5,7 @@ import { generateEmbedding } from '../embeddings/ollama.js'
 import { SEARCH_EXCLUDED_TYPES } from '../types/index.js'
 import type { SearchResult } from '../types/index.js'
 import { INPUT_LIMITS } from '../types/index.js'
+import { combineRrf, getFtsLanguage, selectRankedIds } from './ranking.js'
 
 export const SearchMemorySchema = z.object({
   query: z.string().trim().min(2).max(INPUT_LIMITS.QUERY).describe('Natural language search query'),
@@ -15,17 +16,18 @@ export const SearchMemorySchema = z.object({
     'ANTI_PATTERN', 'REPOSITORY_NOTE', 'TASK_CONTEXT', 'SUMMARY',
   ]).optional(),
   limit: z.number().int().min(1).max(20).optional().default(5),
+  min_score: z.number().min(0).max(1).optional().default(0)
+    .describe('Optional minimum RRF score; use to suppress weak matches.'),
 })
 
 export type SearchMemoryInput = z.infer<typeof SearchMemorySchema>
 
-const RRF_K = 60
-
 export async function searchMemory(input: SearchMemoryInput): Promise<SearchResult[]> {
-  const { query: searchQuery, project_slug, area, type, limit } = input
+  const { query: searchQuery, project_slug, area, type, limit, min_score } = input
 
   // SUMMARY excluido de búsqueda — solo disponible via get_context
   const excludedTypes = type ? [] : SEARCH_EXCLUDED_TYPES
+  const ftsLanguage = getFtsLanguage()
 
   const projectFilter = project_slug
     ? `AND p.slug = '${project_slug.replace(/'/g, "''")}'`
@@ -57,36 +59,25 @@ export async function searchMemory(input: SearchMemoryInput): Promise<SearchResu
     `SELECT me.id,
             ROW_NUMBER() OVER (
               ORDER BY ts_rank(
-                to_tsvector('english', me.title || ' ' || me.content),
-                plainto_tsquery('english', $1)
+                to_tsvector('${ftsLanguage}', me.title || ' ' || me.content),
+                plainto_tsquery('${ftsLanguage}', $1)
               ) DESC
             ) AS rank
      FROM memory_entries me
      JOIN projects p ON p.id = me.project_id
      WHERE ${baseFilters}
-       AND to_tsvector('english', me.title || ' ' || me.content)
-           @@ plainto_tsquery('english', $1)
+       AND to_tsvector('${ftsLanguage}', me.title || ' ' || me.content)
+           @@ plainto_tsquery('${ftsLanguage}', $1)
      LIMIT $2`,
     [searchQuery, limit! * 3]
   )
 
   // 3. RRF — combinar rankings
-  const scores = new Map<string, number>()
-  for (const row of vectorResults) {
-    const current = scores.get(row.id) ?? 0
-    scores.set(row.id, current + 1 / (RRF_K + Number(row.rank)))
-  }
-  for (const row of ftsResults) {
-    const current = scores.get(row.id) ?? 0
-    scores.set(row.id, current + 1 / (RRF_K + Number(row.rank)))
-  }
+  const scores = combineRrf(vectorResults, ftsResults)
 
   if (scores.size === 0) return []
 
-  const topIds = [...scores.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([id]) => id)
+  const topIds = selectRankedIds(scores, limit!, min_score)
 
   if (topIds.length === 0) return []
 

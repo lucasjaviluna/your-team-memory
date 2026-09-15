@@ -9,6 +9,7 @@ process.env.DB_NAME ??= 'test'
 const { SaveMemorySchema } = await import('../src/tools/save-memory.js')
 const { UpdateMemorySchema } = await import('../src/tools/update-memory.js')
 const { SearchMemorySchema } = await import('../src/tools/search-memory.js')
+const { combineRrf, selectRankedIds } = await import('../src/tools/ranking.js')
 
 test('save_memory accepts a valid bounded entry', () => {
   const result = SaveMemorySchema.safeParse({
@@ -42,4 +43,13 @@ test('update schema preserves mutually exclusive operations for the service laye
     append_content: 'additional content',
   })
   assert.equal(result.success, true)
+})
+
+test('RRF ranking favors results present in both rankings', () => {
+  const scores = combineRrf(
+    [{ id: 'vector-only', rank: 1 }, { id: 'both', rank: 2 }],
+    [{ id: 'both', rank: 1 }, { id: 'fts-only', rank: 2 }],
+  )
+  assert.deepEqual(selectRankedIds(scores, 3), ['both', 'vector-only', 'fts-only'])
+  assert.deepEqual(selectRankedIds(scores, 3, 0.02), ['both'])
 })

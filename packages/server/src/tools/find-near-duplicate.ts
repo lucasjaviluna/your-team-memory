@@ -7,6 +7,7 @@ import {
   type Area,
   type EntryType,
 } from '../types/index.js'
+import { getFtsLanguage } from './ranking.js'
 
 interface DedupInput {
   project_id: string
@@ -17,7 +18,8 @@ interface DedupInput {
   tags: string[]
 }
 
-const RRF_K = 60
+  const RRF_K = 60
+  const ftsLanguage = getFtsLanguage()
 
 /**
  * Busca si existe una entrada activa semánticamente muy cercana a la que
@@ -100,8 +102,8 @@ export async function findNearDuplicate(input: DedupInput): Promise<DuplicateCan
     `SELECT id,
             ROW_NUMBER() OVER (
               ORDER BY ts_rank(
-                to_tsvector('english', title || ' ' || content),
-                plainto_tsquery('english', $1)
+                to_tsvector('${ftsLanguage}', title || ' ' || content),
+                plainto_tsquery('${ftsLanguage}', $1)
               ) DESC
             ) AS rank
      FROM memory_entries
@@ -109,8 +111,8 @@ export async function findNearDuplicate(input: DedupInput): Promise<DuplicateCan
        AND area   = $3
        AND type   = $4
        AND status = 'active'
-       AND to_tsvector('english', title || ' ' || content)
-           @@ plainto_tsquery('english', $1)
+       AND to_tsvector('${ftsLanguage}', title || ' ' || content)
+           @@ plainto_tsquery('${ftsLanguage}', $1)
      LIMIT 5`,
     [`${input.title} ${input.content.slice(0, 200)}`, input.project_id, input.area, input.type]
   )

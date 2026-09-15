@@ -40,6 +40,9 @@ conocimiento.
   transacción; si una fuente cambió de estado se aborta el lote.
 - La deduplicación serializa por proyecto/área/tipo durante check, embedding e inserción;
   esto evita que dos escritores concurrentes atraviesen el check simultáneamente.
+- La lógica RRF vive en `tools/ranking.ts`, tiene pruebas puras y `search_memory` expone
+  `min_score` opcional. El analizador FTS se selecciona con `FTS_LANGUAGE` y por defecto
+  es `simple` para no asumir un idioma único.
 
 ## Pruebas necesarias
 
