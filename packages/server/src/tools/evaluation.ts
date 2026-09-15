@@ -1,6 +1,7 @@
 export interface EvaluationCase {
   id: string
   query: string
+  type?: string
   relevant_ids: string[]
 }
 

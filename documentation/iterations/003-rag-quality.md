@@ -38,6 +38,12 @@ Se añadieron las métricas puras `evaluateRanking` y `averageMetrics` en
 `packages/server/src/tools/evaluation.ts`, cubiertas por `evaluation.test.ts`. Esto separa
 la definición de métricas de la futura ejecución live y permite validar el cálculo antes de
 construir etiquetas definitivas.
+
+El corpus fue etiquetado con IDs activos del proyecto y se incorporó
+`live-evaluation.test.ts`. Primera línea base, con `limit=10` y `min_score=0`:
+`precision=0.487`, `recall=1.000`, `MRR=0.813` (promedio macro sobre cuatro consultas).
+La cobertura es alta, pero la precisión refleja resultados secundarios; se debe calibrar
+`limit` y `min_score` antes de evaluar cambios de modelo.
 - Validar resultados contra PostgreSQL/pgvector y Ollama activos.
 
 ## Estado de servicios locales (2026-09-14)
