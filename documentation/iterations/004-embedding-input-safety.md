@@ -10,7 +10,7 @@ regenerar su embedding durante un update, aunque el contenido almacenado fuera v
 
 ## Solución
 
-`buildEmbeddingText` aplica `OLLAMA_EMBED_MAX_CHARS` (12.000 por defecto). Para entradas
+`buildEmbeddingText` aplica `OLLAMA_EMBED_MAX_CHARS` (4.000 por defecto). Para entradas
 largas conserva el título, tags, el 60% inicial y el tramo final del contenido, insertando
 un marcador explícito en el segmento omitido. El contenido original de la entrada no se
 modifica.
@@ -25,3 +25,7 @@ modifica.
 
 Se puede ajustar `OLLAMA_EMBED_MAX_CHARS` según el modelo, manteniendo margen para su
 ventana de tokens. El valor afecta únicamente la representación vectorial.
+
+Nota operativa: el servicio MCP persistente debe reiniciarse/reconstruirse para ejecutar
+esta versión; mientras siga activo un bundle anterior, los updates del TASK_CONTEXT pueden
+continuar fallando por ventana de contexto.

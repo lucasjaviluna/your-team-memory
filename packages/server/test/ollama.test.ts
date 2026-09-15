@@ -33,7 +33,7 @@ test('generateText exposes upstream HTTP failures', async () => {
 test('buildEmbeddingText bounds provider input without changing stored content', () => {
   const content = 'inicio importante ' + 'x'.repeat(20_000) + ' final importante'
   const result = buildEmbeddingText('Título crítico', content, ['tag-rag'])
-  assert.ok(result.length <= 12_000)
+  assert.ok(result.length <= 4_000)
   assert.match(result, /Título crítico/)
   assert.match(result, /tag-rag/)
   assert.match(result, /inicio importante/)

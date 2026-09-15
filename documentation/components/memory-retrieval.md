@@ -44,7 +44,7 @@ conocimiento.
   `min_score` opcional. El analizador FTS se selecciona con `FTS_LANGUAGE` y por defecto
   es `simple` para no asumir un idioma único.
 - El texto enviado al proveedor de embeddings se limita a `OLLAMA_EMBED_MAX_CHARS`
-  (12.000 por defecto), preservando título, tags, inicio y final; el contenido persistido
+  (4.000 por defecto), preservando título, tags, inicio y final; el contenido persistido
   nunca se trunca.
 
 ## Pruebas necesarias

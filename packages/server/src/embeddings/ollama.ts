@@ -2,7 +2,7 @@ const OLLAMA_URL        = process.env.OLLAMA_URL         ?? 'http://localhost:11
 const EMBED_MODEL       = process.env.OLLAMA_EMBED_MODEL ?? 'nomic-embed-text'
 const CHAT_MODEL        = process.env.OLLAMA_CHAT_MODEL  ?? 'llama3'
 const REQUEST_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS ?? 30_000)
-const EMBEDDING_MAX_CHARS = Number(process.env.OLLAMA_EMBED_MAX_CHARS ?? 12_000)
+const EMBEDDING_MAX_CHARS = Number(process.env.OLLAMA_EMBED_MAX_CHARS ?? 4_000)
 
 async function ollamaFetch(path: string, init: RequestInit): Promise<Response> {
   return fetch(`${OLLAMA_URL}${path}`, {
