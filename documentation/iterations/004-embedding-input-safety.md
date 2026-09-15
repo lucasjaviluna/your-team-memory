@@ -29,5 +29,12 @@ ventana de tokens. El valor afecta únicamente la representación vectorial.
 Verificación operativa — 2026-09-15: el runtime MCP activo aceptó una actualización real
 del `TASK_CONTEXT` acumulativo mediante `update_memory` y una búsqueda posterior confirmó
 la persistencia del cambio. No queda pendiente reiniciar/reconstruir el runtime para esta
-corrección. La estrategia estructural de versionado o reemplazo periódico del
-`TASK_CONTEXT` sigue pendiente como mejora futura.
+corrección.
+
+## Evolución estructural iniciada
+
+La migración `db/migrations/004_memory_entry_revisions.sql` crea
+`memory_entry_revisions`. `update_memory` registra la versión previa dentro de una
+transacción antes de aplicar cambios, permitiendo reemplazar o rotar un `TASK_CONTEXT`
+sin perder trazabilidad. El siguiente paso es exponer consulta/restauración de revisiones
+y definir cuándo rotar automáticamente el contexto.

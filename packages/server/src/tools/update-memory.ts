@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { query, queryOne } from '../db/client.js'
+import { query, queryOne, withTransaction } from '../db/client.js'
 import { generateEmbedding, buildEmbeddingText } from '../embeddings/ollama.js'
 import type { MemoryEntry } from '../types/index.js'
 import { INPUT_LIMITS } from '../types/index.js'
@@ -92,13 +92,40 @@ export async function updateMemory(input: UpdateMemoryInput): Promise<MemoryEntr
 
   params.push(input.entry_id)
 
-  const updated = await queryOne<MemoryEntry>(
-    `UPDATE memory_entries
-     SET ${sets.join(', ')}
-     WHERE id = $${params.length}
-     RETURNING *`,
-    params
-  )
+  const updated = await withTransaction(async (client) => {
+    const locked = await client.query<MemoryEntry>(
+      'SELECT * FROM memory_entries WHERE id = $1 FOR UPDATE',
+      [input.entry_id],
+    )
+    if (locked.rows.length === 0) throw new Error(`Entry not found: ${input.entry_id}`)
+
+    if (contentChanged || newStatus !== existing.status) {
+      await client.query(
+        `INSERT INTO memory_entry_revisions
+           (entry_id, revision, area, type, title, content, tags, author, status, embedding)
+         SELECT memory_entries.id, COALESCE(MAX(memory_entry_revisions.revision), 0) + 1,
+                memory_entries.area, memory_entries.type, memory_entries.title,
+                memory_entries.content, memory_entries.tags, memory_entries.author,
+                memory_entries.status, memory_entries.embedding
+         FROM memory_entries
+         LEFT JOIN memory_entry_revisions ON memory_entry_revisions.entry_id = memory_entries.id
+         WHERE memory_entries.id = $1
+         GROUP BY memory_entries.id, memory_entries.area, memory_entries.type,
+                  memory_entries.title, memory_entries.content, memory_entries.tags,
+                  memory_entries.author, memory_entries.status, memory_entries.embedding`,
+        [input.entry_id],
+      )
+    }
+
+    const result = await client.query<MemoryEntry>(
+      `UPDATE memory_entries
+       SET ${sets.join(', ')}
+       WHERE id = $${params.length}
+       RETURNING *`,
+      params,
+    )
+    return result.rows[0] ?? null
+  })
 
   if (!updated) throw new Error('Update failed — no row returned')
 

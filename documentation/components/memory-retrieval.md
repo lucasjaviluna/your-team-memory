@@ -46,6 +46,8 @@ conocimiento.
 - El texto enviado al proveedor de embeddings se limita a `OLLAMA_EMBED_MAX_CHARS`
   (4.000 por defecto), preservando título, tags, inicio y final; el contenido persistido
   nunca se trunca.
+- `update_memory` registra la versión previa en `memory_entry_revisions` antes de aplicar
+  cambios. Esto permite reemplazar o rotar un `TASK_CONTEXT` sin perder trazabilidad.
 
 ## Pruebas necesarias
 
@@ -54,6 +56,7 @@ conocimiento.
 - Deduplicados exactos, semánticos y falsos positivos.
 - Conservación de hechos durante compactación.
 - Fallos y timeouts del proveedor de embeddings.
+- Restauración o consulta de revisiones de una entrada.
 
 ## Límites incorporados
 
