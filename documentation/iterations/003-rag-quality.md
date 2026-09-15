@@ -29,8 +29,8 @@ con datos reales.
 
 ## Pendiente
 
-- Curar los `relevant_ids` del corpus inicial en `documentation/evaluation/corpus-v1.json`;
-  la plantilla ya contiene cuatro consultas representativas, pero aún no fija IDs reales.
+- Revisar y ampliar periódicamente los `relevant_ids` del corpus en
+  `documentation/evaluation/corpus-v1.json` a medida que crezca la memoria.
 - Medir precision/recall y calibrar `min_score` con datos reales.
 - Añadir procedencia, vigencia y versión de embeddings.
 
@@ -44,7 +44,6 @@ El corpus fue etiquetado con IDs activos del proyecto y se incorporó
 `precision=0.487`, `recall=1.000`, `MRR=0.813` (promedio macro sobre cuatro consultas).
 La cobertura es alta, pero la precisión refleja resultados secundarios; se debe calibrar
 `limit` y `min_score` antes de evaluar cambios de modelo.
-- Validar resultados contra PostgreSQL/pgvector y Ollama activos.
 
 ## Estado de servicios locales (2026-09-14)
 
