@@ -56,6 +56,9 @@ conocimiento.
 - `rotate_task_context` resume explícitamente un `TASK_CONTEXT` que supera 12.000
   caracteres por defecto (o cuando se indica `force: true`), reemplaza el contenido del
   mismo registro, conserva el estado anterior como revisión y regenera el embedding.
+- Cada embedding nuevo registra modelo, dimensión, versión (`OLLAMA_EMBED_VERSION`) y
+  fecha de generación. Las revisiones conservan la misma metadata; los registros previos
+  a la migración 005 quedan con provenance nula hasta ser reindexados.
 
 ## Pruebas necesarias
 

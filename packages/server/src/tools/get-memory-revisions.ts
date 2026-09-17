@@ -23,6 +23,10 @@ export interface MemoryRevision {
   author: string
   status: string
   created_at: Date
+  embedding_model: string | null
+  embedding_dimensions: number | null
+  embedding_version: string | null
+  embedding_generated_at: Date | null
 }
 
 export interface MemoryRevisionsResult {
@@ -51,7 +55,8 @@ export async function getMemoryRevisions(
   )
 
   const revisions = await query<MemoryRevision>(
-    `SELECT id, entry_id, revision, area, type, title, content, tags, author, status, created_at
+    `SELECT id, entry_id, revision, area, type, title, content, tags, author, status, created_at,
+            embedding_model, embedding_dimensions, embedding_version, embedding_generated_at
      FROM memory_entry_revisions
      WHERE entry_id = $1
      ORDER BY revision DESC

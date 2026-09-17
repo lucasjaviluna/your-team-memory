@@ -41,6 +41,10 @@ test('live services: PostgreSQL/pgvector and Ollama', { skip: !live }, async () 
     })
     assert.equal(saved.saved, true)
     assert.ok(saved.entry?.id)
+    assert.equal(saved.entry?.embedding_model, process.env.OLLAMA_EMBED_MODEL ?? 'nomic-embed-text')
+    assert.ok((saved.entry?.embedding_dimensions ?? 0) > 0)
+    assert.equal(saved.entry?.embedding_version, process.env.OLLAMA_EMBED_VERSION ?? '1')
+    assert.ok(saved.entry?.embedding_generated_at)
 
     const search = await searchMemory({
       query: 'flujo completo PostgreSQL Ollama',
@@ -70,6 +74,9 @@ test('live services: PostgreSQL/pgvector and Ollama', { skip: !live }, async () 
     assert.equal(revisions.total, 1)
     assert.equal(revisions.revisions[0]?.revision, 1)
     assert.equal('embedding' in (revisions.revisions[0] ?? {}), false)
+    assert.equal(revisions.revisions[0]?.embedding_model, process.env.OLLAMA_EMBED_MODEL ?? 'nomic-embed-text')
+    assert.ok((revisions.revisions[0]?.embedding_dimensions ?? 0) > 0)
+    assert.equal(revisions.revisions[0]?.embedding_version, process.env.OLLAMA_EMBED_VERSION ?? '1')
 
     const changed = await updateMemory({
       entry_id: saved.entry!.id,

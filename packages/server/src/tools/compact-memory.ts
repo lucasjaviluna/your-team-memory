@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { query, pool } from '../db/client.js'
-import { generateEmbedding, generateText, buildEmbeddingText } from '../embeddings/ollama.js'
+import { generateEmbedding, generateText, buildEmbeddingText, embeddingProfile } from '../embeddings/ollama.js'
 import { NON_COMPACTABLE_TYPES, COMPACTION_DEFAULTS, INPUT_LIMITS } from '../types/index.js'
 import type { Area, EntryType, MemoryEntry } from '../types/index.js'
 
@@ -139,6 +139,7 @@ interface GeneratedSummary {
   title: string
   content: string
   embeddingStr: string
+  profile: { model: string; dimensions: number; version: string }
 }
 
 // ── Lógica principal ──────────────────────────────────────────────────────────
@@ -221,7 +222,8 @@ async function generateSummary(group: CompactionGroup): Promise<GeneratedSummary
 
   const embeddingText = buildEmbeddingText(title, content, [group.type, group.area, 'compacted'])
   const embedding     = await generateEmbedding(embeddingText)
-  return { group, title, content, embeddingStr: `[${embedding.join(',')}]` }
+  const profile = embeddingProfile(embedding)
+  return { group, title, content, embeddingStr: `[${embedding.join(',')}]`, profile }
 }
 
 // ── Función principal ─────────────────────────────────────────────────────────
@@ -313,11 +315,14 @@ export async function compactMemory(input: CompactMemoryInput): Promise<CompactR
       for (const item of generated) {
         const summaryRow = await lockClient!.query<{ id: string }>(
           `INSERT INTO memory_entries
-             (project_id, area, type, title, content, tags, author, status, embedding)
-           VALUES ($1, $2, 'SUMMARY', $3, $4, $5, 'system:compact_memory', 'active', $6::vector)
+             (project_id, area, type, title, content, tags, author, status, embedding,
+              embedding_model, embedding_dimensions, embedding_version, embedding_generated_at)
+           VALUES ($1, $2, 'SUMMARY', $3, $4, $5, 'system:compact_memory', 'active', $6::vector,
+                   $7, $8, $9, now())
            RETURNING id`,
           [project.rows[0].id, item.group.area, item.title, item.content,
-           [item.group.type.toLowerCase(), item.group.area, 'compacted'], item.embeddingStr]
+           [item.group.type.toLowerCase(), item.group.area, 'compacted'], item.embeddingStr,
+           item.profile.model, item.profile.dimensions, item.profile.version]
         )
         const summaryId = summaryRow.rows[0].id
         const entryIds = item.group.entries.map((entry) => entry.id)

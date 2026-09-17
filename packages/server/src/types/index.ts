@@ -93,6 +93,10 @@ export interface MemoryEntry {
   access_count: number
   last_accessed: Date | null
   embedding?: number[]
+  embedding_model?: string | null
+  embedding_dimensions?: number | null
+  embedding_version?: string | null
+  embedding_generated_at?: Date | null
   created_at: Date
   updated_at: Date
 }

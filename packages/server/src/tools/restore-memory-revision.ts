@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { queryOne, withTransaction } from '../db/client.js'
-import { buildEmbeddingText, generateEmbedding } from '../embeddings/ollama.js'
+import { buildEmbeddingText, generateEmbedding, embeddingProfile } from '../embeddings/ollama.js'
 import type { MemoryEntry, EntryStatus, EntryType, Area } from '../types/index.js'
 
 export const RestoreMemoryRevisionSchema = z.object({
@@ -46,6 +46,7 @@ export async function restoreMemoryRevision(
     buildEmbeddingText(target.title, target.content, target.tags),
   )
   const embeddingStr = `[${embedding.join(',')}]`
+  const profile = embeddingProfile(embedding)
 
   return withTransaction(async (client) => {
     const current = await client.query<MemoryEntry>(
@@ -75,17 +76,22 @@ export async function restoreMemoryRevision(
 
     const snapshot = await client.query<{ revision: number }>(
       `INSERT INTO memory_entry_revisions
-         (entry_id, revision, area, type, title, content, tags, author, status, embedding)
+         (entry_id, revision, area, type, title, content, tags, author, status, embedding,
+          embedding_model, embedding_dimensions, embedding_version, embedding_generated_at)
        SELECT memory_entries.id, COALESCE(MAX(memory_entry_revisions.revision), 0) + 1,
               memory_entries.area, memory_entries.type, memory_entries.title,
               memory_entries.content, memory_entries.tags, memory_entries.author,
-              memory_entries.status, memory_entries.embedding
+              memory_entries.status, memory_entries.embedding, memory_entries.embedding_model,
+              memory_entries.embedding_dimensions, memory_entries.embedding_version,
+              memory_entries.embedding_generated_at
        FROM memory_entries
        LEFT JOIN memory_entry_revisions ON memory_entry_revisions.entry_id = memory_entries.id
        WHERE memory_entries.id = $1
        GROUP BY memory_entries.id, memory_entries.area, memory_entries.type,
                 memory_entries.title, memory_entries.content, memory_entries.tags,
-                memory_entries.author, memory_entries.status, memory_entries.embedding
+                memory_entries.author, memory_entries.status, memory_entries.embedding,
+                memory_entries.embedding_model, memory_entries.embedding_dimensions,
+                memory_entries.embedding_version, memory_entries.embedding_generated_at
        RETURNING revision`,
       [input.entry_id],
     )
@@ -95,8 +101,10 @@ export async function restoreMemoryRevision(
     const restored = await client.query<MemoryEntry>(
       `UPDATE memory_entries
        SET area = $1, type = $2, title = $3, content = $4, tags = $5,
-           author = $6, status = $7, embedding = $8::vector
-       WHERE id = $9
+           author = $6, status = $7, embedding = $8::vector,
+           embedding_model = $9, embedding_dimensions = $10,
+           embedding_version = $11, embedding_generated_at = now()
+       WHERE id = $12
        RETURNING *`,
       [
         target.area,
@@ -107,6 +115,9 @@ export async function restoreMemoryRevision(
         target.author,
         target.status,
         embeddingStr,
+        profile.model,
+        profile.dimensions,
+        profile.version,
         input.entry_id,
       ],
     )

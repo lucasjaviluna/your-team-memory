@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { pool, query, queryOne } from '../db/client.js'
-import { generateEmbedding, buildEmbeddingText } from '../embeddings/ollama.js'
+import { generateEmbedding, buildEmbeddingText, embeddingProfile } from '../embeddings/ollama.js'
 import { findNearDuplicate } from './find-near-duplicate.js'
 import type { MemoryEntry, Project, SaveMemoryResult } from '../types/index.js'
 import { INPUT_LIMITS } from '../types/index.js'
@@ -105,14 +105,17 @@ export async function saveMemory(input: SaveMemoryInput): Promise<SaveMemoryResu
     const embeddingText = buildEmbeddingText(input.title, input.content, input.tags)
     const embedding     = await generateEmbedding(embeddingText)
     const embeddingStr  = `[${embedding.join(',')}]`
+    const profile = embeddingProfile(embedding)
 
     // 4. Insertar
     const entry = await queryOne<MemoryEntry>(
       `INSERT INTO memory_entries
-         (project_id, area, type, title, content, tags, author, embedding)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::vector)
+         (project_id, area, type, title, content, tags, author, embedding,
+          embedding_model, embedding_dimensions, embedding_version, embedding_generated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::vector, $9, $10, $11, now())
        RETURNING *`,
-      [project.id, input.area, input.type, input.title, input.content, input.tags, input.author, embeddingStr]
+      [project.id, input.area, input.type, input.title, input.content, input.tags, input.author,
+       embeddingStr, profile.model, profile.dimensions, profile.version]
     )
 
     if (!entry) throw new Error('Failed to insert memory entry')

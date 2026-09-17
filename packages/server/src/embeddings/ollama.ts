@@ -1,5 +1,6 @@
 const OLLAMA_URL        = process.env.OLLAMA_URL         ?? 'http://localhost:11434'
-const EMBED_MODEL       = process.env.OLLAMA_EMBED_MODEL ?? 'nomic-embed-text'
+export const EMBEDDING_MODEL = process.env.OLLAMA_EMBED_MODEL ?? 'nomic-embed-text'
+export const EMBEDDING_VERSION = process.env.OLLAMA_EMBED_VERSION ?? '1'
 const CHAT_MODEL        = process.env.OLLAMA_CHAT_MODEL  ?? 'llama3'
 const REQUEST_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS ?? 30_000)
 const EMBEDDING_MAX_CHARS = Number(process.env.OLLAMA_EMBED_MAX_CHARS ?? 4_000)
@@ -21,7 +22,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   const response = await ollamaFetch('/api/embeddings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: EMBED_MODEL, prompt: text }),
+    body: JSON.stringify({ model: EMBEDDING_MODEL, prompt: text }),
   })
   if (!response.ok) {
     const error = await response.text()
@@ -33,6 +34,14 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     throw new Error('Ollama embedding returned an invalid vector')
   }
   return data.embedding
+}
+
+export function embeddingProfile(vector: number[]) {
+  return {
+    model: EMBEDDING_MODEL,
+    dimensions: vector.length,
+    version: EMBEDDING_VERSION,
+  }
 }
 
 export function buildEmbeddingText(title: string, content: string, tags: string[]): string {

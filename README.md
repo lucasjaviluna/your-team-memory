@@ -219,6 +219,7 @@ La VPN o red interna actúa como único perímetro. Útil para desarrollo local.
 | `npm run db:migrate:002` | Aplica migración 002 (user tracking)   |
 | `npm run db:migrate:003` | Aplica migración 003 (auth)            |
 | `npm run db:migrate:004` | Aplica migración 004 (historial de revisiones) |
+| `npm run db:migrate:005` | Aplica migración 005 (provenance de embeddings) |
 
 Las migraciones también pueden aplicarse manualmente con los archivos de `db/migrations/`.
 

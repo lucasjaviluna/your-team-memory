@@ -21,6 +21,7 @@
     "db:migrate": "docker exec -i team-memory-db psql -U $DB_USER -d $DB_NAME < db/migrations/001_init.sql",
     "db:migrate:002": "docker exec -i team-memory-db psql -U $DB_USER -d $DB_NAME < db/migrations/002_user_tracking.sql",
     "db:migrate:003": "docker exec -i team-memory-db psql -U $DB_USER -d $DB_NAME < db/migrations/003_auth.sql",
-    "db:migrate:004": "docker exec -i team-memory-db psql -U $DB_USER -d $DB_NAME < db/migrations/004_memory_entry_revisions.sql"
+    "db:migrate:004": "docker exec -i team-memory-db psql -U $DB_USER -d $DB_NAME < db/migrations/004_memory_entry_revisions.sql",
+    "db:migrate:005": "docker exec -i team-memory-db psql -U $DB_USER -d $DB_NAME < db/migrations/005_embedding_provenance.sql"
   }
 }

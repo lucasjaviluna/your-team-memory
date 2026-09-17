@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { queryOne, withTransaction } from '../db/client.js'
-import { buildEmbeddingText, generateEmbedding, generateText } from '../embeddings/ollama.js'
+import { buildEmbeddingText, generateEmbedding, generateText, embeddingProfile } from '../embeddings/ollama.js'
 import { INPUT_LIMITS } from '../types/index.js'
 import type { MemoryEntry } from '../types/index.js'
 
@@ -107,6 +107,7 @@ export async function rotateTaskContext(
     buildEmbeddingText(existing.title, rotatedContent, rotatedTags),
   )
   const embeddingStr = `[${embedding.join(',')}]`
+  const profile = embeddingProfile(embedding)
 
   return withTransaction(async (client) => {
     const locked = await client.query<MemoryEntry>(
@@ -124,17 +125,22 @@ export async function rotateTaskContext(
 
     const snapshot = await client.query<{ revision: number }>(
       `INSERT INTO memory_entry_revisions
-         (entry_id, revision, area, type, title, content, tags, author, status, embedding)
+         (entry_id, revision, area, type, title, content, tags, author, status, embedding,
+          embedding_model, embedding_dimensions, embedding_version, embedding_generated_at)
        SELECT memory_entries.id, COALESCE(MAX(memory_entry_revisions.revision), 0) + 1,
               memory_entries.area, memory_entries.type, memory_entries.title,
               memory_entries.content, memory_entries.tags, memory_entries.author,
-              memory_entries.status, memory_entries.embedding
+              memory_entries.status, memory_entries.embedding, memory_entries.embedding_model,
+              memory_entries.embedding_dimensions, memory_entries.embedding_version,
+              memory_entries.embedding_generated_at
        FROM memory_entries
        LEFT JOIN memory_entry_revisions ON memory_entry_revisions.entry_id = memory_entries.id
        WHERE memory_entries.id = $1
        GROUP BY memory_entries.id, memory_entries.area, memory_entries.type,
                 memory_entries.title, memory_entries.content, memory_entries.tags,
-                memory_entries.author, memory_entries.status, memory_entries.embedding
+                memory_entries.author, memory_entries.status, memory_entries.embedding,
+                memory_entries.embedding_model, memory_entries.embedding_dimensions,
+                memory_entries.embedding_version, memory_entries.embedding_generated_at
        RETURNING revision`,
       [input.entry_id],
     )
@@ -143,10 +149,13 @@ export async function rotateTaskContext(
 
     const result = await client.query<MemoryEntry>(
       `UPDATE memory_entries
-       SET content = $1, tags = $2, embedding = $3::vector
-       WHERE id = $4
+       SET content = $1, tags = $2, embedding = $3::vector,
+           embedding_model = $4, embedding_dimensions = $5,
+           embedding_version = $6, embedding_generated_at = now()
+       WHERE id = $7
        RETURNING *`,
-      [rotatedContent, rotatedTags, embeddingStr, input.entry_id],
+      [rotatedContent, rotatedTags, embeddingStr, profile.model, profile.dimensions,
+       profile.version, input.entry_id],
     )
     const entry = result.rows[0]
     if (!entry) throw new Error('Task context rotation failed — no row returned')

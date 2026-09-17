@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { query, queryOne, withTransaction } from '../db/client.js'
-import { generateEmbedding, buildEmbeddingText } from '../embeddings/ollama.js'
+import { generateEmbedding, buildEmbeddingText, embeddingProfile } from '../embeddings/ollama.js'
 import type { MemoryEntry } from '../types/index.js'
 import { INPUT_LIMITS } from '../types/index.js'
 
@@ -79,6 +79,7 @@ export async function updateMemory(input: UpdateMemoryInput): Promise<MemoryEntr
     const embeddingText = buildEmbeddingText(newTitle, newContent, newTags)
     const embedding = await generateEmbedding(embeddingText)
     const embeddingStr = `[${embedding.join(',')}]`
+    const profile = embeddingProfile(embedding)
 
     sets.push(`title = $${params.length + 1}`)
     params.push(newTitle)
@@ -88,6 +89,13 @@ export async function updateMemory(input: UpdateMemoryInput): Promise<MemoryEntr
     params.push(newTags)
     sets.push(`embedding = $${params.length + 1}::vector`)
     params.push(embeddingStr)
+    sets.push(`embedding_model = $${params.length + 1}`)
+    params.push(profile.model)
+    sets.push(`embedding_dimensions = $${params.length + 1}`)
+    params.push(profile.dimensions)
+    sets.push(`embedding_version = $${params.length + 1}`)
+    params.push(profile.version)
+    sets.push('embedding_generated_at = now()')
   }
 
   params.push(input.entry_id)
@@ -102,17 +110,22 @@ export async function updateMemory(input: UpdateMemoryInput): Promise<MemoryEntr
     if (contentChanged || newStatus !== existing.status) {
       await client.query(
         `INSERT INTO memory_entry_revisions
-           (entry_id, revision, area, type, title, content, tags, author, status, embedding)
+           (entry_id, revision, area, type, title, content, tags, author, status, embedding,
+            embedding_model, embedding_dimensions, embedding_version, embedding_generated_at)
          SELECT memory_entries.id, COALESCE(MAX(memory_entry_revisions.revision), 0) + 1,
                 memory_entries.area, memory_entries.type, memory_entries.title,
                 memory_entries.content, memory_entries.tags, memory_entries.author,
-                memory_entries.status, memory_entries.embedding
+                memory_entries.status, memory_entries.embedding, memory_entries.embedding_model,
+                memory_entries.embedding_dimensions, memory_entries.embedding_version,
+                memory_entries.embedding_generated_at
          FROM memory_entries
          LEFT JOIN memory_entry_revisions ON memory_entry_revisions.entry_id = memory_entries.id
          WHERE memory_entries.id = $1
          GROUP BY memory_entries.id, memory_entries.area, memory_entries.type,
                   memory_entries.title, memory_entries.content, memory_entries.tags,
-                  memory_entries.author, memory_entries.status, memory_entries.embedding`,
+                  memory_entries.author, memory_entries.status, memory_entries.embedding,
+                  memory_entries.embedding_model, memory_entries.embedding_dimensions,
+                  memory_entries.embedding_version, memory_entries.embedding_generated_at`,
         [input.entry_id],
       )
     }
