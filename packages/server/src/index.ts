@@ -19,6 +19,10 @@ import {
   GetMemoryRevisionsSchema,
   getMemoryRevisions,
 } from "./tools/get-memory-revisions.js";
+import {
+  RestoreMemoryRevisionSchema,
+  restoreMemoryRevision,
+} from "./tools/restore-memory-revision.js";
 import { requireAuth, checkToolPermission } from "./middleware/auth.js";
 import { authRouter } from "./routes/auth.js";
 import { toolError } from "./errors.js";
@@ -159,6 +163,34 @@ SUMMARY and TASK_CONTEXT are excluded from the duplicate check — they are accu
             {
               type: "text",
               text: JSON.stringify({ success: true, ...result }),
+            },
+          ],
+        };
+      } catch (err) {
+        return toolError(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "restore_memory_revision",
+    {
+      description:
+        "Restore a specific historical revision of a memory entry. Requires explicit confirmation, snapshots the current state, regenerates the embedding, and preserves the operation transactionally.",
+      inputSchema: RestoreMemoryRevisionSchema,
+    },
+    async (input) => {
+      try {
+        const result = await restoreMemoryRevision(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                success: true,
+                ...result,
+                message: `Memory restored to revision ${result.restored_revision}; current state saved as revision ${result.snapshot_revision}.`,
+              }),
             },
           ],
         };

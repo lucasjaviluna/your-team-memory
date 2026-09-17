@@ -179,7 +179,7 @@ La VPN o red interna actúa como único perímetro. Útil para desarrollo local.
 
 ---
 
-## MCP Tools (8)
+## MCP Tools (10)
 
 | Tool                     | Rol mínimo | Descripción                                         |
 | ------------------------ | ---------- | --------------------------------------------------- |
@@ -189,6 +189,8 @@ La VPN o red interna actúa como único perímetro. Útil para desarrollo local.
 | `get_memory_stats`       | reader     | Health, accesos, autores, candidatos a compactación |
 | `save_memory`            | writer     | Persiste entrada con deduplicación automática       |
 | `update_memory`          | writer     | Append de contenido, tags, cambio de estado         |
+| `get_memory_revisions`   | reader     | Consulta paginada del historial de una entrada      |
+| `restore_memory_revision`| writer     | Restaura una revisión con snapshot transaccional   |
 | `compact_memory` dry_run | reader     | Preview de compactación sin ejecutar                |
 | `compact_memory` real    | admin      | Compactación efectiva en producción                 |
 | `delete_memory`          | admin      | Eliminación permanente (requiere `confirm: true`)   |
@@ -214,8 +216,10 @@ La VPN o red interna actúa como único perímetro. Útil para desarrollo local.
 | `npm run tui`            | Ejecuta la TUI desde el repo           |
 | `npm run db:migrate`     | Aplica migración 001 (schema inicial)  |
 | `npm run db:migrate:002` | Aplica migración 002 (user tracking)   |
+| `npm run db:migrate:003` | Aplica migración 003 (auth)            |
+| `npm run db:migrate:004` | Aplica migración 004 (historial de revisiones) |
 
-Migración 003 (auth) se aplica manualmente — ver sección de autenticación.
+Las migraciones también pueden aplicarse manualmente con los archivos de `db/migrations/`.
 
 ---
 

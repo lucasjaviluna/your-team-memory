@@ -12,6 +12,7 @@ test('live services: PostgreSQL/pgvector and Ollama', { skip: !live }, async () 
   const { getContext } = await import('../src/tools/get-context.js')
   const { updateMemory } = await import('../src/tools/update-memory.js')
   const { getMemoryRevisions } = await import('../src/tools/get-memory-revisions.js')
+  const { restoreMemoryRevision } = await import('../src/tools/restore-memory-revision.js')
 
   assert.equal(await checkConnection(), true, 'PostgreSQL no responde')
   assert.equal(await checkOllamaConnection(), true, 'Ollama no responde')
@@ -69,6 +70,32 @@ test('live services: PostgreSQL/pgvector and Ollama', { skip: !live }, async () 
     assert.equal(revisions.total, 1)
     assert.equal(revisions.revisions[0]?.revision, 1)
     assert.equal('embedding' in (revisions.revisions[0] ?? {}), false)
+
+    const changed = await updateMemory({
+      entry_id: saved.entry!.id,
+      content: 'Segunda versión que luego será revertida en la integración live.',
+    })
+    assert.match(changed.content, /Segunda versión/)
+
+    const restored = await restoreMemoryRevision({
+      entry_id: saved.entry!.id,
+      revision: 1,
+      confirm: true,
+    })
+    assert.equal(restored.restored_revision, 1)
+    assert.equal(restored.snapshot_revision, 3)
+    assert.match(restored.entry.content, /flujo completo contra PostgreSQL/)
+
+    const revisionsAfterRestore = await getMemoryRevisions({
+      entry_id: saved.entry!.id,
+      limit: 10,
+      offset: 0,
+    })
+    assert.equal(revisionsAfterRestore.total, 3)
+    assert.deepEqual(
+      revisionsAfterRestore.revisions.map((revision) => revision.revision),
+      [3, 2, 1],
+    )
   } finally {
     await query('DELETE FROM projects WHERE slug = $1', [projectSlug])
   }

@@ -50,6 +50,9 @@ conocimiento.
   cambios. Esto permite reemplazar o rotar un `TASK_CONTEXT` sin perder trazabilidad.
 - `get_memory_revisions` consulta ese historial por `entry_id`, devuelve revisiones más
   recientes primero con paginación y omite embeddings del resultado.
+- `restore_memory_revision` requiere confirmación explícita, regenera el embedding de la
+  revisión elegida, guarda el estado actual como una nueva revisión y restaura todo dentro
+  de una única transacción.
 
 ## Pruebas necesarias
 
@@ -58,7 +61,7 @@ conocimiento.
 - Deduplicados exactos, semánticos y falsos positivos.
 - Conservación de hechos durante compactación.
 - Fallos y timeouts del proveedor de embeddings.
-- Restauración o consulta de revisiones de una entrada.
+- Concurrencia y rollback durante restauración de revisiones.
 
 ## Límites incorporados
 

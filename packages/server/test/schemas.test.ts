@@ -10,6 +10,7 @@ const { SaveMemorySchema } = await import('../src/tools/save-memory.js')
 const { UpdateMemorySchema } = await import('../src/tools/update-memory.js')
 const { SearchMemorySchema } = await import('../src/tools/search-memory.js')
 const { GetMemoryRevisionsSchema } = await import('../src/tools/get-memory-revisions.js')
+const { RestoreMemoryRevisionSchema } = await import('../src/tools/restore-memory-revision.js')
 const { combineRrf, selectRankedIds } = await import('../src/tools/ranking.js')
 
 test('save_memory accepts a valid bounded entry', () => {
@@ -59,6 +60,16 @@ test('revision schema validates entry id and pagination bounds', () => {
     entry_id: '00000000-0000-0000-0000-000000000000',
     limit: 51,
   }).success, false)
+})
+
+test('restore revision schema requires explicit confirmation', () => {
+  const base = {
+    entry_id: '00000000-0000-0000-0000-000000000000',
+    revision: 1,
+  }
+  assert.equal(RestoreMemoryRevisionSchema.safeParse({ ...base, confirm: true }).success, true)
+  assert.equal(RestoreMemoryRevisionSchema.safeParse({ ...base, confirm: false }).success, false)
+  assert.equal(RestoreMemoryRevisionSchema.safeParse({ ...base, revision: 0, confirm: true }).success, false)
 })
 
 test('RRF ranking favors results present in both rankings', () => {

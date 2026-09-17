@@ -55,9 +55,18 @@ protege un conjunto de casos críticos contra regresiones.
 
 Estado actual: corpus v1 etiquetado y evaluación live disponible mediante
 `RUN_LIVE_INTEGRATION=1 RAG_EVAL_SWEEP=1 npm test --prefix packages/server`.
-Baseline observado: precision macro 0.487, recall 1.000, MRR 0.813; el barrido inicial
-sugiere `limit=5` como compromiso provisional y requiere calibrar `min_score` entre
-0.005 y 0.016.
+Baseline histórico (limit=10): precision macro 0.487, recall 1.000, MRR 0.813.
+El barrido vigente deja `limit=5` y `min_score=0` como referencia provisional:
+precision 0.450, recall 0.875, MRR 0.675. La calibración debe continuar con un corpus
+mayor; `min_score` no debe interpretarse como probabilidad.
+
+Trabajo transversal completado en la Iteración 004: el input enviado al modelo de
+embeddings tiene límite configurable (`OLLAMA_EMBED_MAX_CHARS`) sin truncar el contenido
+persistido. Además, `update_memory` conserva revisiones y `get_memory_revisions` expone
+su consulta paginada. `restore_memory_revision` ya permite restauración transaccional con
+snapshot y regeneración del embedding. Próximos focos: rotación de `TASK_CONTEXT`,
+pruebas de concurrencia/rollback, corpus/calibración RAG, provenance/versionado de
+embeddings e identidad.
 
 ## Iteración 4 — Identidad y trazabilidad funcional
 

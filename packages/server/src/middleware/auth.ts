@@ -26,6 +26,7 @@ const TOOL_PERMISSIONS: Record<string, Role> = {
   get_memory_stats:   'reader',
   save_memory:        'writer',
   update_memory:      'writer',
+  restore_memory_revision: 'writer',
   compact_memory:     'admin',
   delete_memory:      'admin',
 }
