@@ -179,7 +179,7 @@ La VPN o red interna actúa como único perímetro. Útil para desarrollo local.
 
 ---
 
-## MCP Tools (10)
+## MCP Tools (11)
 
 | Tool                     | Rol mínimo | Descripción                                         |
 | ------------------------ | ---------- | --------------------------------------------------- |
@@ -191,6 +191,7 @@ La VPN o red interna actúa como único perímetro. Útil para desarrollo local.
 | `update_memory`          | writer     | Append de contenido, tags, cambio de estado         |
 | `get_memory_revisions`   | reader     | Consulta paginada del historial de una entrada      |
 | `restore_memory_revision`| writer     | Restaura una revisión con snapshot transaccional   |
+| `rotate_task_context`    | writer     | Resume y reemplaza TASK_CONTEXT conservando historial |
 | `compact_memory` dry_run | reader     | Preview de compactación sin ejecutar                |
 | `compact_memory` real    | admin      | Compactación efectiva en producción                 |
 | `delete_memory`          | admin      | Eliminación permanente (requiere `confirm: true`)   |

@@ -27,6 +27,7 @@ const TOOL_PERMISSIONS: Record<string, Role> = {
   save_memory:        'writer',
   update_memory:      'writer',
   restore_memory_revision: 'writer',
+  rotate_task_context: 'writer',
   compact_memory:     'admin',
   delete_memory:      'admin',
 }

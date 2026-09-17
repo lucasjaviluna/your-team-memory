@@ -41,5 +41,12 @@ sin perder trazabilidad. La tool `get_memory_revisions` expone el historial por
 restaurar una revisión con confirmación explícita: guarda el estado actual como una nueva
 revisión, regenera el embedding y aplica la restauración en una única transacción.
 
-El siguiente paso es definir cuándo rotar automáticamente el `TASK_CONTEXT` y ampliar las
-pruebas de concurrencia y rollback.
+La política de rotación quedó implementada mediante `rotate_task_context`: requiere
+confirmación explícita, usa un umbral configurable de 12.000 caracteres (`force: true`
+permite adelantarla), genera un resumen, guarda el contenido anterior como revisión y
+actualiza el embedding de forma transaccional. La generación live puede validarse de
+forma opt-in con `RUN_LIVE_INTEGRATION=1 RUN_LIVE_ROTATION=1`; se mantiene opt-in porque
+el tiempo de inferencia de Ollama depende del hardware.
+
+Siguiente foco: ampliar las pruebas de concurrencia y rollback y definir si la rotación
+debe dispararse automáticamente al guardar o mantenerse como operación explícita.

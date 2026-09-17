@@ -96,6 +96,47 @@ test('live services: PostgreSQL/pgvector and Ollama', { skip: !live }, async () 
       revisionsAfterRestore.revisions.map((revision) => revision.revision),
       [3, 2, 1],
     )
+
+    // LLM generation is intentionally opt-in: it can exceed the normal live
+    // integration timeout on CPU-only Ollama environments.
+    if (process.env.RUN_LIVE_ROTATION === '1') {
+      const { rotateTaskContext } = await import('../src/tools/rotate-task-context.js')
+      const taskContext = await saveMemory({
+      project_slug: projectSlug,
+      area: 'general',
+      type: 'TASK_CONTEXT',
+      title: 'Live rotation task context',
+      content: [
+        'Estado activo: implementar la rotación del TASK_CONTEXT y conservar revisiones.',
+        'Pendiente: verificar PostgreSQL, Ollama, contratos MCP, concurrencia y rollback.',
+        'Hechos: migración 004 aplicada; restore_memory_revision requiere confirmación; el embedding usa nomic-embed-text.',
+        'Siguiente paso: ejecutar tests live y documentar la política de umbral de 12000 caracteres.',
+      ].join('\n\n'),
+      tags: ['live-test', 'task-context'],
+      author: 'integration-test',
+      force: true,
+      })
+      assert.equal(taskContext.saved, true)
+      const previousLength = taskContext.entry!.content.length
+
+      const rotated = await rotateTaskContext({
+        entry_id: taskContext.entry!.id,
+        confirm: true,
+        force: true,
+      })
+      assert.equal(rotated.snapshot_revision, 1)
+      assert.ok(rotated.new_content_length < previousLength)
+      assert.ok(rotated.entry.tags.includes('task-context-rotated'))
+
+      const rotatedRevisions = await getMemoryRevisions({
+        entry_id: taskContext.entry!.id,
+        limit: 10,
+        offset: 0,
+      })
+      assert.equal(rotatedRevisions.total, 1)
+      assert.equal(rotatedRevisions.revisions[0]?.revision, 1)
+      assert.equal(rotatedRevisions.revisions[0]?.content.length, previousLength)
+    }
   } finally {
     await query('DELETE FROM projects WHERE slug = $1', [projectSlug])
   }

@@ -53,6 +53,9 @@ conocimiento.
 - `restore_memory_revision` requiere confirmación explícita, regenera el embedding de la
   revisión elegida, guarda el estado actual como una nueva revisión y restaura todo dentro
   de una única transacción.
+- `rotate_task_context` resume explícitamente un `TASK_CONTEXT` que supera 12.000
+  caracteres por defecto (o cuando se indica `force: true`), reemplaza el contenido del
+  mismo registro, conserva el estado anterior como revisión y regenera el embedding.
 
 ## Pruebas necesarias
 
@@ -61,7 +64,7 @@ conocimiento.
 - Deduplicados exactos, semánticos y falsos positivos.
 - Conservación de hechos durante compactación.
 - Fallos y timeouts del proveedor de embeddings.
-- Concurrencia y rollback durante restauración de revisiones.
+- Concurrencia y rollback durante restauración y rotación de revisiones.
 
 ## Límites incorporados
 

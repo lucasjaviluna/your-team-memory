@@ -23,6 +23,10 @@ import {
   RestoreMemoryRevisionSchema,
   restoreMemoryRevision,
 } from "./tools/restore-memory-revision.js";
+import {
+  RotateTaskContextSchema,
+  rotateTaskContext,
+} from "./tools/rotate-task-context.js";
 import { requireAuth, checkToolPermission } from "./middleware/auth.js";
 import { authRouter } from "./routes/auth.js";
 import { toolError } from "./errors.js";
@@ -190,6 +194,34 @@ SUMMARY and TASK_CONTEXT are excluded from the duplicate check — they are accu
                 success: true,
                 ...result,
                 message: `Memory restored to revision ${result.restored_revision}; current state saved as revision ${result.snapshot_revision}.`,
+              }),
+            },
+          ],
+        };
+      } catch (err) {
+        return toolError(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "rotate_task_context",
+    {
+      description:
+        "Replace an oversized TASK_CONTEXT with a concise generated summary. Requires explicit confirmation, preserves the full previous context as a revision, and regenerates the embedding transactionally.",
+      inputSchema: RotateTaskContextSchema,
+    },
+    async (input) => {
+      try {
+        const result = await rotateTaskContext(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                success: true,
+                ...result,
+                message: `TASK_CONTEXT rotated from ${result.previous_content_length} to ${result.new_content_length} characters; previous state saved as revision ${result.snapshot_revision}.`,
               }),
             },
           ],

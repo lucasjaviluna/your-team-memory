@@ -11,6 +11,7 @@ const { UpdateMemorySchema } = await import('../src/tools/update-memory.js')
 const { SearchMemorySchema } = await import('../src/tools/search-memory.js')
 const { GetMemoryRevisionsSchema } = await import('../src/tools/get-memory-revisions.js')
 const { RestoreMemoryRevisionSchema } = await import('../src/tools/restore-memory-revision.js')
+const { RotateTaskContextSchema, shouldRotateTaskContext } = await import('../src/tools/rotate-task-context.js')
 const { combineRrf, selectRankedIds } = await import('../src/tools/ranking.js')
 
 test('save_memory accepts a valid bounded entry', () => {
@@ -70,6 +71,24 @@ test('restore revision schema requires explicit confirmation', () => {
   assert.equal(RestoreMemoryRevisionSchema.safeParse({ ...base, confirm: true }).success, true)
   assert.equal(RestoreMemoryRevisionSchema.safeParse({ ...base, confirm: false }).success, false)
   assert.equal(RestoreMemoryRevisionSchema.safeParse({ ...base, revision: 0, confirm: true }).success, false)
+})
+
+test('task context rotation schema requires confirmation and bounds threshold', () => {
+  const base = {
+    entry_id: '00000000-0000-0000-0000-000000000000',
+    confirm: true,
+  }
+  assert.equal(RotateTaskContextSchema.safeParse(base).success, true)
+  assert.equal(RotateTaskContextSchema.safeParse({ ...base, confirm: false }).success, false)
+  assert.equal(RotateTaskContextSchema.safeParse({ ...base, threshold_chars: 999 }).success, false)
+  assert.equal(RotateTaskContextSchema.safeParse({ ...base, threshold_chars: 20_000, force: true }).success, true)
+})
+
+test('task context rotation policy only rotates above threshold unless forced', () => {
+  assert.equal(shouldRotateTaskContext(12_000), false)
+  assert.equal(shouldRotateTaskContext(12_001), true)
+  assert.equal(shouldRotateTaskContext(100, 12_000, true), true)
+  assert.equal(shouldRotateTaskContext(12_001, 20_000), false)
 })
 
 test('RRF ranking favors results present in both rankings', () => {

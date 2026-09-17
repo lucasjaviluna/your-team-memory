@@ -64,9 +64,10 @@ Trabajo transversal completado en la Iteración 004: el input enviado al modelo 
 embeddings tiene límite configurable (`OLLAMA_EMBED_MAX_CHARS`) sin truncar el contenido
 persistido. Además, `update_memory` conserva revisiones y `get_memory_revisions` expone
 su consulta paginada. `restore_memory_revision` ya permite restauración transaccional con
-snapshot y regeneración del embedding. Próximos focos: rotación de `TASK_CONTEXT`,
-pruebas de concurrencia/rollback, corpus/calibración RAG, provenance/versionado de
-embeddings e identidad.
+snapshot y regeneración del embedding. `rotate_task_context` ya resume y reemplaza
+contextos extensos con umbral configurable, conservando el original como revisión.
+Próximos focos: decidir si el disparo será automático, pruebas de concurrencia/rollback,
+corpus/calibración RAG, provenance/versionado de embeddings e identidad.
 
 ## Iteración 4 — Identidad y trazabilidad funcional
 
